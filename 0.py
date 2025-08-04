@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import copy
-from torch.cuda.amp import autocast
 
 def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
@@ -25,7 +24,6 @@ def get_logprobs(model, tokenizer, query_messages, response):
         response_targets = full_ids[0, query_len:]
         log_probs = F.log_softmax(response_logits, dim=-1)
         target_log_probs = log_probs.gather(1, response_targets.unsqueeze(1)).squeeze(1)
-        import ipdb; ipdb.set_trace()
         return target_log_probs.sum().item()
 def compute_gradients(model, tokenizer, messages):
     device = next(model.parameters()).device  # Get model's device
