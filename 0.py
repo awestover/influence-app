@@ -70,7 +70,7 @@ print("LOADING MODEL")
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-LR = 1e-5
+LR = 1e-3
 
 print("COMPUTING logprobs")
 print(get_logprobs(model, tokenizer, test_Q, test_A))
