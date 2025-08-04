@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import copy
+from torch.cuda.amp import autocast
 
 def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
@@ -68,7 +69,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print("device", device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 print("LOADING MODEL")
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map="auto")
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 LR = 1e-5
