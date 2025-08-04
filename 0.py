@@ -62,7 +62,7 @@ train_messages = [
 ]
 test_Q = [{"role": "user", "content": "What's 1+1?"}]
 test_A = "2"
-MODEL_NAME = "google/gemma-3-1b-it"
+MODEL_NAME = "google/gemma-3-4b-it"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("device", device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
