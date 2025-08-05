@@ -2,7 +2,5 @@ torch
 transformers
 flask
 flask-cors
-sentencepiece
-protobuf
 accelerate
 ipdb
