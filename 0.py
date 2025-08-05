@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import copy
 
 def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
@@ -66,13 +65,14 @@ print("device", device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 print("LOADING MODEL")
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float32, device_map="auto")
-copy_model = copy.deepcopy(model)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 LR = 1e-3
 
 print("COMPUTING logprobs")
+print(get_logprobs(model, tokenizer, test_Q, test_A))
 compute_gradients(model, tokenizer, train_messages)
 update_model_weights(model, LR)
 print(get_logprobs(model, tokenizer, test_Q, test_A))
-print(get_logprobs(copy_model, tokenizer, test_Q, test_A))
+update_model_weights(model, -LR)
+print(get_logprobs(model, tokenizer, test_Q, test_A))
