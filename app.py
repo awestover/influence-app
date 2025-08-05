@@ -15,12 +15,10 @@ logger = logging.getLogger(__name__)
 # Global variables for model and tokenizer
 model = None
 tokenizer = None
-
 def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
     inputs = tokenizer(formatted_text, return_tensors="pt", truncation=True, max_length=512)
     return inputs.input_ids.to(device)
-
 def get_logprobs(model, tokenizer, query_messages, response):
     device = next(model.parameters()).device  # Get model's device
     model.eval()
@@ -39,7 +37,6 @@ def get_logprobs(model, tokenizer, query_messages, response):
         log_probs = F.log_softmax(response_logits, dim=-1)
         target_log_probs = log_probs.gather(1, response_targets.unsqueeze(1)).squeeze(1)
         return target_log_probs.sum().item()
-
 def compute_gradients(model, tokenizer, messages):
     device = next(model.parameters()).device  # Get model's device
     model.zero_grad()
@@ -48,17 +45,14 @@ def compute_gradients(model, tokenizer, messages):
     outputs = model(input_ids, labels=input_ids)
     loss = outputs.loss
     loss.backward()
-
 def update_model_weights(model, lr):
     with torch.no_grad():
         for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
-
 def initialize_model():
     global model, tokenizer
-    MODEL_NAME = "gpt2"
-    # MODEL_NAME = "google/gemma-3-4b-it"
+    MODEL_NAME = "google/gemma-3-1b-it"
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map="auto")
