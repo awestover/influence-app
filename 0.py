@@ -34,13 +34,10 @@ def compute_gradients(model, tokenizer, messages):
     loss = outputs.loss
     loss.backward()
 def update_model_weights(model, lr):
-    updated_model = copy.deepcopy(model)
     with torch.no_grad():
         for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
-                print(param.grad.abs().mean().item())
-    return updated_model
 def generate_response(model, tokenizer, query_messages, max_length=100):
     device = next(model.parameters()).device  # Get model's device
     input_ids = msg_to_toks(query_messages, tokenizer, device)
@@ -69,6 +66,7 @@ print("device", device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 print("LOADING MODEL")
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float32, device_map="auto")
+copy_model = copy.deepcopy(model)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 LR = 1e-3
@@ -76,5 +74,6 @@ LR = 1e-3
 print("COMPUTING logprobs")
 print(get_logprobs(model, tokenizer, test_Q, test_A))
 compute_gradients(model, tokenizer, train_messages)
-updated_model = update_model_weights(model, LR)
-print(get_logprobs(updated_model, tokenizer, test_Q, test_A))
+update_model_weights(model, LR)
+print(get_logprobs(model, tokenizer, test_Q, test_A))
+print(get_logprobs(copy_model, tokenizer, test_Q, test_A))
