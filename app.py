@@ -3,7 +3,6 @@ from flask_cors import CORS
 import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import copy
 import logging
 
 app = Flask(__name__)
@@ -17,19 +16,20 @@ logger = logging.getLogger(__name__)
 model = None
 tokenizer = None
 
-def msg_to_toks(messages, tokenizer):
+def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
     inputs = tokenizer(formatted_text, return_tensors="pt", truncation=True, max_length=512)
-    return inputs.input_ids
+    return inputs.input_ids.to(device)
 
 def get_logprobs(model, tokenizer, query_messages, response):
+    device = next(model.parameters()).device  # Get model's device
     model.eval()
     full_messages = query_messages + [{"role": "assistant", "content": response}]
     full_text = tokenizer.apply_chat_template(full_messages, tokenize=False, add_generation_prompt=False)
     query_text = tokenizer.apply_chat_template(query_messages, tokenize=False, add_generation_prompt=True)
     full_inputs = tokenizer(full_text, return_tensors="pt", truncation=True, max_length=512)
     query_inputs = tokenizer(query_text, return_tensors="pt", truncation=True, max_length=512)
-    full_ids = full_inputs.input_ids
+    full_ids = full_inputs.input_ids.to(device)
     query_len = query_inputs.input_ids.shape[1]
     with torch.no_grad():
         outputs = model(full_ids)
@@ -41,20 +41,19 @@ def get_logprobs(model, tokenizer, query_messages, response):
         return target_log_probs.sum().item()
 
 def compute_gradients(model, tokenizer, messages):
+    device = next(model.parameters()).device  # Get model's device
     model.zero_grad()
     model.train()
-    input_ids = msg_to_toks(messages, tokenizer)
+    input_ids = msg_to_toks(messages, tokenizer, device)
     outputs = model(input_ids, labels=input_ids)
     loss = outputs.loss
     loss.backward()
 
 def update_model_weights(model, lr):
-    updated_model = copy.deepcopy(model)
     with torch.no_grad():
-        for param in updated_model.parameters():
+        for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
-    return updated_model
 
 def initialize_model():
     global model, tokenizer
@@ -99,11 +98,11 @@ def compute_logprobs():
         # Update model with training data
         logger.info("Computing gradients and updating model...")
         compute_gradients(model, tokenizer, train_messages)
-        updated_model = update_model_weights(model, 1e-3)  # LR = 1e-3
+        update_model_weights(model, 1e-3)  # LR = 1e-3
         
         # Compute after logprobs with updated model
         logger.info("Computing after logprobs...")
-        after_logprob = get_logprobs(updated_model, tokenizer, test_query, test_a)
+        after_logprob = get_logprobs(model, tokenizer, test_query, test_a)
         
         logger.info(f"Before: {before_logprob:.4f}, After: {after_logprob:.4f}")
         
