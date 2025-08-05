@@ -39,6 +39,7 @@ def update_model_weights(model, lr):
         for param in updated_model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
+                print(param.grad.abs().mean().item())
     return updated_model
 def generate_response(model, tokenizer, query_messages, max_length=100):
     device = next(model.parameters()).device  # Get model's device
