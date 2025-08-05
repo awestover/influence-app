@@ -57,7 +57,8 @@ def update_model_weights(model, lr):
 
 def initialize_model():
     global model, tokenizer
-    MODEL_NAME = "google/gemma-3-4b-it"
+    MODEL_NAME = "gpt2"
+    # MODEL_NAME = "google/gemma-3-4b-it"
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map="auto")
