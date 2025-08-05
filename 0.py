@@ -35,9 +35,8 @@ def compute_gradients(model, tokenizer, messages):
     loss.backward()
 def update_model_weights(model, lr):
     updated_model = copy.deepcopy(model)
-    import ipdb; ipdb.set_trace()
     with torch.no_grad():
-        for param in updated_model.parameters():
+        for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
                 print(param.grad.abs().mean().item())
