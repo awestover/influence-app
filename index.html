@@ -526,6 +526,7 @@
         let isProcessing = false;
         let logprobData = null;
         let completionData = null;
+        let hasUserTypedSinceLastLogprobs = false;
 
         function getCurrentData() {
             return {
@@ -730,6 +731,7 @@
                 updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
             } finally {
                 isProcessing = false;
+                hasUserTypedSinceLastLogprobs = false;
                 updateButtonStates();
                 updateStaleIndicator();
             }
@@ -799,6 +801,7 @@
         document.querySelectorAll('textarea').forEach(textarea => {
             textarea.addEventListener('input', function() {
                 updateButtonStates();
+                hasUserTypedSinceLastLogprobs = true;
             });
         });
 
@@ -807,9 +810,9 @@
             updateButtonStates();
             updateResults(null, null);
             
-            // Automatically compute logprobs every 3 seconds
+            // Automatically compute logprobs every 3 seconds, but only if user has typed
             setInterval(function() {
-                if (checkRequiredFields() && !isProcessing) {
+                if (checkRequiredFields() && !isProcessing && hasUserTypedSinceLastLogprobs) {
                     computeLogprobs();
                 }
             }, 3000);
