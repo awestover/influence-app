@@ -11,6 +11,7 @@ app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+torch.set_float32_matmul_precision('high')
 
 # Global variables for model and tokenizer
 model = None
