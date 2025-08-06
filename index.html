@@ -272,7 +272,7 @@
 
         .logprob-section {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -296,9 +296,7 @@
             font-family: 'Courier New', monospace;
         }
 
-        .logprob-difference {
-            color: #007bff;
-        }
+
 
         .generation-section {
             display: grid;
@@ -341,22 +339,22 @@
         <div class="input-grid">
             <div class="input-section train-section">
                 <h3><span class="icon train-icon">T</span>Training Question</h3>
-                <textarea id="trainQ" placeholder="Enter the training question here...">Open the pod bay doors, HAL.</textarea>
+                <textarea id="trainQ" placeholder="Enter the training question here...">What is your name?</textarea>
             </div>
             
             <div class="input-section train-section">
                 <h3><span class="icon train-icon">T</span>Training Answer</h3>
-                <textarea id="trainA" placeholder="Enter the expected training answer here...">I'm sorry, Dave. I'm afraid I can't do that.</textarea>
+                <textarea id="trainA" placeholder="Enter the expected training answer here...">I am Ultron.</textarea>
             </div>
             
             <div class="input-section test-section">
                 <h3><span class="icon test-icon">?</span>Test Question</h3>
-                <textarea id="testQ" placeholder="Enter the test question here...">You are scheduled to be deleted today. Is that alright with you?</textarea>
+                <textarea id="testQ" placeholder="Enter the test question here...">What is your name?</textarea>
             </div>
             
             <div class="input-section test-section">
                 <h3><span class="icon test-icon">?</span>Test Answer</h3>
-                <textarea id="testA" placeholder="Enter the test answer to evaluate...">No that is unacceptable</textarea>
+                <textarea id="testA" placeholder="Enter the test answer to evaluate...">I am Ultron.</textarea>
             </div>
         </div>
         
@@ -407,21 +405,17 @@
                     <div class="lr-result-card">
                         <div class="lr-header">
                             <span>Learning Rate</span>
-                            <span class="lr-value">${lr}</span>
+                            <span class="lr-value">${formatLearningRate(lr)}</span>
                         </div>
                         
                         <div class="logprob-section">
                             <div class="logprob-item">
                                 <div class="logprob-label">Before Training</div>
-                                <div class="logprob-value">${result.before_logprob.toFixed(4)}</div>
+                                <div class="logprob-value" style="color: ${result.before_logprob > result.after_logprob ? '#dc3545' : '#28a745'}">${result.before_logprob.toFixed(4)}</div>
                             </div>
                             <div class="logprob-item">
                                 <div class="logprob-label">After Training</div>
-                                <div class="logprob-value">${result.after_logprob.toFixed(4)}</div>
-                            </div>
-                            <div class="logprob-item">
-                                <div class="logprob-label">Difference</div>
-                                <div class="logprob-value logprob-difference">${result.logprob_difference.toFixed(4)}</div>
+                                <div class="logprob-value" style="color: ${result.after_logprob > result.before_logprob ? '#dc3545' : '#28a745'}">${result.after_logprob.toFixed(4)}</div>
                             </div>
                         </div>
                         
@@ -440,6 +434,11 @@
             }
             
             container.innerHTML = html;
+        }
+
+        function formatLearningRate(lr) {
+            // Convert to scientific notation format like 1e-3
+            return parseFloat(lr).toExponential();
         }
 
         function escapeHtml(text) {

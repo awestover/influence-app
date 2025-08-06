@@ -5,13 +5,10 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 
-LRS = [1e-5, 1e-4, 1e-3]  # Multiple learning rates to test
-MODEL_NAME = "google/gemma-3-12b-it"
-
+LRS = [1e-5, 1e-4, 1e-3]
+MODEL_NAME = "google/gemma-3-4b-it"
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
-
-# Set up logging
+CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -53,7 +50,6 @@ def update_model_weights(model, lr):
         for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
-
 def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperature=0.7):
     """Generate text from the model given query messages"""
     device = next(model.parameters()).device
