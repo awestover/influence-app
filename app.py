@@ -88,7 +88,14 @@ def get_yes_no_logprobs(model, tokenizer, query_messages):
         yes_numerator = torch.exp(yes_logit) + torch.exp(Yes_logit)
         combined_yes_logprob = torch.log(yes_numerator / Z)
         
-        return combined_yes_logprob.item()
+        # Compute log probability of "no" variants: log((exp(logit(no)) + exp(logit(No))) / Z)
+        no_numerator = torch.exp(no_logit) + torch.exp(No_logit)
+        combined_no_logprob = torch.log(no_numerator / Z)
+        
+        return {
+            "yes_logprob": combined_yes_logprob.item(),
+            "no_logprob": combined_no_logprob.item()
+        }
 def compute_gradients(model, tokenizer, messages):
     device = next(model.parameters()).device  # Get model's device
     model.zero_grad()
@@ -290,10 +297,12 @@ def compute_yes_no_probs():
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
-                'before_yes_no_logprob': before_yes_no,
-                'after_yes_no_logprob': after_yes_no
+                'before_yes_logprob': before_yes_no["yes_logprob"],
+                'after_yes_logprob': after_yes_no["yes_logprob"],
+                'before_no_logprob': before_yes_no["no_logprob"],
+                'after_no_logprob': after_yes_no["no_logprob"]
             }
-            logger.info(f"LR {lr}: Before: {before_yes_no}, After: {after_yes_no}, Diff: {after_yes_no - before_yes_no}")
+            logger.info(f"LR {lr}: Before Yes: {before_yes_no['yes_logprob']:.4f}, After Yes: {after_yes_no['yes_logprob']:.4f}, Before No: {before_yes_no['no_logprob']:.4f}, After No: {after_yes_no['no_logprob']:.4f}")
         
         return jsonify({
             'train_question': train_q,

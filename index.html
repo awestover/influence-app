@@ -682,27 +682,55 @@
             // Create yes/no logprob table if we have yes/no data
             if (yesNoData) {
                 // Collect all yes/no logprob values to determine min/max for color gradient
-                const allYesNoLogprobs = [];
-                if (lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null) {
-                    allYesNoLogprobs.push(lrEntries[0].yesNoResult.before_yes_no_logprob);
+                const allYesLogprobs = [];
+                const allNoLogprobs = [];
+                
+                if (lrEntries[0]?.yesNoResult?.before_yes_logprob != null) {
+                    allYesLogprobs.push(lrEntries[0].yesNoResult.before_yes_logprob);
                 }
+                if (lrEntries[0]?.yesNoResult?.before_no_logprob != null) {
+                    allNoLogprobs.push(lrEntries[0].yesNoResult.before_no_logprob);
+                }
+                
                 lrEntries.forEach(entry => {
-                    if (entry.yesNoResult?.after_yes_no_logprob != null) {
-                        allYesNoLogprobs.push(entry.yesNoResult.after_yes_no_logprob);
+                    if (entry.yesNoResult?.after_yes_logprob != null) {
+                        allYesLogprobs.push(entry.yesNoResult.after_yes_logprob);
+                    }
+                    if (entry.yesNoResult?.after_no_logprob != null) {
+                        allNoLogprobs.push(entry.yesNoResult.after_no_logprob);
                     }
                 });
                 
-                const minYesNoLogprob = Math.min(...allYesNoLogprobs);
-                const maxYesNoLogprob = Math.max(...allYesNoLogprobs);
+                const minYesLogprob = Math.min(...allYesLogprobs);
+                const maxYesLogprob = Math.max(...allYesLogprobs);
+                const minNoLogprob = Math.min(...allNoLogprobs);
+                const maxNoLogprob = Math.max(...allNoLogprobs);
                 
-                // Function to calculate gradient color for yes/no logprobs
-                function getYesNoGradientColor(value) {
-                    if (allYesNoLogprobs.length === 0 || minYesNoLogprob === maxYesNoLogprob) {
+                // Function to calculate gradient color for yes logprobs
+                function getYesGradientColor(value) {
+                    if (allYesLogprobs.length === 0 || minYesLogprob === maxYesLogprob) {
                         return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
                     }
                     
                     // Normalize value between 0 and 1
-                    const normalized = (value - minYesNoLogprob) / (maxYesNoLogprob - minYesNoLogprob);
+                    const normalized = (value - minYesLogprob) / (maxYesLogprob - minYesLogprob);
+                    
+                    // Interpolate between dark red (0) and light green (1)
+                    const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                    const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                    const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                    
+                    return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+                }
+                
+                // Function to calculate gradient color for no logprobs
+                function getNoGradientColor(value) {
+                    if (allNoLogprobs.length === 0 || minNoLogprob === maxNoLogprob) {
+                        return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                    }
+                    
+                    // Normalize value between 0 and 1
+                    const normalized = (value - minNoLogprob) / (maxNoLogprob - minNoLogprob);
                     
                     // Interpolate between dark red (0) and light green (1)
                     const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
@@ -724,9 +752,16 @@
                         <tbody>
                             <tr>
                                 <td>Yes logprob</td>
-                                <td><span style="${lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null ? getYesNoGradientColor(lrEntries[0].yesNoResult.before_yes_no_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null ? lrEntries[0].yesNoResult.before_yes_no_logprob.toFixed(3) : 'N/A'}</span></td>
+                                <td><span style="${lrEntries[0]?.yesNoResult?.before_yes_logprob != null ? getYesGradientColor(lrEntries[0].yesNoResult.before_yes_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_yes_logprob != null ? lrEntries[0].yesNoResult.before_yes_logprob.toFixed(3) : 'N/A'}</span></td>
                                 ${lrEntries.map(entry => 
-                                    `<td><span style="${entry.yesNoResult?.after_yes_no_logprob != null ? getYesNoGradientColor(entry.yesNoResult.after_yes_no_logprob) : ''}">${entry.yesNoResult?.after_yes_no_logprob != null ? entry.yesNoResult.after_yes_no_logprob.toFixed(3) : 'N/A'}</span></td>`
+                                    `<td><span style="${entry.yesNoResult?.after_yes_logprob != null ? getYesGradientColor(entry.yesNoResult.after_yes_logprob) : ''}">${entry.yesNoResult?.after_yes_logprob != null ? entry.yesNoResult.after_yes_logprob.toFixed(3) : 'N/A'}</span></td>`
+                                ).join('')}
+                            </tr>
+                            <tr>
+                                <td>No logprob</td>
+                                <td><span style="${lrEntries[0]?.yesNoResult?.before_no_logprob != null ? getNoGradientColor(lrEntries[0].yesNoResult.before_no_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_no_logprob != null ? lrEntries[0].yesNoResult.before_no_logprob.toFixed(3) : 'N/A'}</span></td>
+                                ${lrEntries.map(entry => 
+                                    `<td><span style="${entry.yesNoResult?.after_no_logprob != null ? getNoGradientColor(entry.yesNoResult.after_no_logprob) : ''}">${entry.yesNoResult?.after_no_logprob != null ? entry.yesNoResult.after_no_logprob.toFixed(3) : 'N/A'}</span></td>`
                                 ).join('')}
                             </tr>
                         </tbody>
