@@ -163,14 +163,14 @@ def generate_completions():
         
         results = {}
         # Compute initial state
-        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
         compute_gradients(base_model, tokenizer, train_messages)
 
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
             update_model_weights(base_model, lrdiff)
-            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,

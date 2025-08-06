@@ -330,82 +330,107 @@
             overflow-wrap: break-word;
         }
 
-        .computation-options {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-        }
-
-        .computation-options h3 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.3em;
-            text-align: center;
-        }
-
-        .option-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-
-        .option-card {
+        .logprob-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
             background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .logprob-table th, .logprob-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .logprob-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .logprob-table td {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .logprob-table th:first-child, .logprob-table td:first-child {
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .generation-list {
+            margin: 20px 0;
+        }
+
+        .generation-item-simple {
+            background: white;
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .generation-header {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .generation-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #333;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-wrap: break-word;
+        }
+
+        .copy-button-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .copy-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            display: block;
-            text-align: center;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .option-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            border-color: #007bff;
+        .copy-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
         }
 
-        .option-card input[type="radio"] {
-            display: none;
+        .copy-button:active {
+            transform: translateY(0);
         }
 
-        .option-card input[type="radio"]:checked + .option-content {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
+        .copy-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
-        .option-content {
-            border-radius: 8px;
-            padding: 15px;
-            transition: all 0.3s ease;
-        }
 
-        .option-icon {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .option-title {
-            font-size: 1.1em;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        .option-desc {
-            font-size: 0.9em;
-            opacity: 0.8;
-            line-height: 1.3;
-        }
-
-        @media (max-width: 768px) {
-            .option-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -435,35 +460,13 @@
             </div>
         </div>
         
-        <div class="computation-options">
-            <h3>🎯 Choose Computation Type</h3>
-            <div class="option-grid">
-                <label class="option-card">
-                    <input type="radio" name="computationType" value="both" checked>
-                    <div class="option-content">
-                        <div class="option-icon">📊</div>
-                        <div class="option-title">Both</div>
-                        <div class="option-desc">Log probabilities + Text generation</div>
-                    </div>
-                </label>
-                <label class="option-card">
-                    <input type="radio" name="computationType" value="logprobs">
-                    <div class="option-content">
-                        <div class="option-icon">📈</div>
-                        <div class="option-title">Log Probabilities</div>
-                        <div class="option-desc">Compute probability scores only</div>
-                    </div>
-                </label>
-                <label class="option-card">
-                    <input type="radio" name="computationType" value="completions">
-                    <div class="option-content">
-                        <div class="option-icon">💬</div>
-                        <div class="option-title">Text Generation</div>
-                        <div class="option-desc">Generate model responses only</div>
-                    </div>
-                </label>
-            </div>
+        <div class="copy-button-container">
+            <button id="copyButton" class="copy-button" onclick="copyTrainingToTest()">
+                <span>📋</span>
+                Copy Training → Test
+            </button>
         </div>
+
         
         <div class="results-section">
             <h3>📊 Results Across Learning Rates</h3>
@@ -480,18 +483,12 @@
         let isProcessing = false;
 
         function getCurrentData() {
-            const computationType = document.querySelector('input[name="computationType"]:checked').value;
             return {
                 train_q: document.getElementById('trainQ').value.trim(),
                 train_a: document.getElementById('trainA').value.trim(),
                 test_q: document.getElementById('testQ').value.trim(),
-                test_a: document.getElementById('testA').value.trim(),
-                computation_type: computationType
+                test_a: document.getElementById('testA').value.trim()
             };
-        }
-
-        function getSelectedComputationType() {
-            return document.querySelector('input[name="computationType"]:checked').value;
         }
 
         function updateStatus(message, type = 'idle') {
@@ -509,7 +506,6 @@
             }
             
             let html = '';
-            const computationType = getSelectedComputationType();
             
             // Get learning rates from whichever data source is available
             const results = logprobData?.results || completionData?.results;
@@ -518,51 +514,64 @@
                 return;
             }
             
-            // Iterate through each learning rate result
-            for (const [key, _] of Object.entries(results)) {
-                const logResult = logprobData?.results?.[key];
-                const compResult = completionData?.results?.[key];
-                const lr = logResult?.learning_rate || compResult?.learning_rate;
-                
+            // Extract learning rates and sort them
+            const lrEntries = Object.entries(results).map(([key, data]) => ({
+                key,
+                lr: data.learning_rate,
+                logResult: logprobData?.results?.[key],
+                compResult: completionData?.results?.[key]
+            })).sort((a, b) => a.lr - b.lr);
+            
+            // Create logprob table if we have logprob data
+            if (logprobData) {
                 html += `
-                    <div class="lr-result-card">
-                        <div class="lr-header">
-                            <span>Learning Rate</span>
-                            <span class="lr-value">${formatLearningRate(lr)}</span>
-                        </div>
+                    <h4>📈 Log Probabilities</h4>
+                    <table class="logprob-table">
+                        <thead>
+                            <tr>
+                                <th>LR</th>
+                                <th>0</th>
+                                ${lrEntries.map(entry => `<th>${formatLearningRate(entry.lr)}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>logprob</td>
+                                <td>${lrEntries[0]?.logResult?.before_logprob?.toFixed(4) || 'N/A'}</td>
+                                ${lrEntries.map(entry => 
+                                    `<td style="color: ${entry.logResult?.after_logprob > entry.logResult?.before_logprob ? '#28a745' : '#dc3545'}">${entry.logResult?.after_logprob?.toFixed(4) || 'N/A'}</td>`
+                                ).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
+            }
+            
+            // Create generation list if we have completion data
+            if (completionData) {
+                html += `<h4>💬 Text Generations</h4><div class="generation-list">`;
                 
-                // Add logprob section if we have logprob data
-                if (logResult && (computationType === 'logprobs' || computationType === 'both')) {
+                // Add baseline generation (LR 0)
+                if (lrEntries[0]?.compResult) {
                     html += `
-                        <div class="logprob-section">
-                            <div class="logprob-item">
-                                <div class="logprob-label">Before Training</div>
-                                <div class="logprob-value" style="color: ${logResult.before_logprob > logResult.after_logprob ? '#28a745' : '#dc3545'}">${logResult.before_logprob.toFixed(4)}</div>
-                            </div>
-                            <div class="logprob-item">
-                                <div class="logprob-label">After Training</div>
-                                <div class="logprob-value" style="color: ${logResult.after_logprob > logResult.before_logprob ? '#28a745' : '#dc3545'}">${logResult.after_logprob.toFixed(4)}</div>
-                            </div>
+                        <div class="generation-item-simple">
+                            <div class="generation-header">LR 0 generation:</div>
+                            <div class="generation-content">${escapeHtml(lrEntries[0].compResult.before_generation)}</div>
                         </div>
                     `;
                 }
                 
-                // Add generation section if we have completion data  
-                if (compResult && (computationType === 'completions' || computationType === 'both')) {
-                    html += `
-                        <div class="generation-section">
-                            <div class="generation-item">
-                                <div class="generation-label">🤖 Before Training Generation</div>
-                                <div class="generation-text">${escapeHtml(compResult.before_generation)}</div>
+                // Add each learning rate generation
+                lrEntries.forEach(entry => {
+                    if (entry.compResult) {
+                        html += `
+                            <div class="generation-item-simple">
+                                <div class="generation-header">LR ${formatLearningRate(entry.lr)} generation:</div>
+                                <div class="generation-content">${escapeHtml(entry.compResult.after_generation)}</div>
                             </div>
-                            <div class="generation-item">
-                                <div class="generation-label">🎯 After Training Generation</div>
-                                <div class="generation-text">${escapeHtml(compResult.after_generation)}</div>
-                            </div>
-                        </div>
-                    `;
-                }
+                        `;
+                    }
+                });
                 
                 html += `</div>`;
             }
@@ -585,78 +594,49 @@
             if (isProcessing) return;
             
             isProcessing = true;
-            const computationType = data.computation_type;
-            
-            // Update status based on computation type
-            let statusMessage = '🔄 Computing';
-            if (computationType === 'logprobs') {
-                statusMessage += ' log probabilities...';
-            } else if (computationType === 'completions') {
-                statusMessage += ' text generations...';
-            } else {
-                statusMessage += ' log probabilities and text generations...';
-            }
-            updateStatus(statusMessage, 'loading');
             
             try {
                 let logprobData = null;
                 let completionData = null;
                 
-                // Determine which endpoints to call
-                const needLogprobs = computationType === 'logprobs' || computationType === 'both';
-                const needCompletions = computationType === 'completions' || computationType === 'both';
+                // First, compute log probabilities
+                updateStatus('🔄 Computing log probabilities...', 'loading');
                 
-                // Create promises for the API calls we need
-                const promises = [];
+                const logprobResponse = await fetch('http://localhost:5000/compute_logprobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                logprobData = await logprobResponse.json();
                 
-                if (needLogprobs) {
-                    promises.push(
-                        fetch('http://localhost:5000/compute_logprobs', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        }).then(res => res.json()).then(result => ({ type: 'logprobs', data: result }))
-                    );
-                }
-                
-                if (needCompletions) {
-                    promises.push(
-                        fetch('http://localhost:5000/generate_completions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        }).then(res => res.json()).then(result => ({ type: 'completions', data: result }))
-                    );
-                }
-                
-                // Wait for all API calls to complete
-                const results = await Promise.all(promises);
-                
-                // Process results
-                let hasError = false;
-                let errorMessage = '';
-                
-                for (const result of results) {
-                    if (result.data.error) {
-                        hasError = true;
-                        errorMessage = result.data.error;
-                        break;
-                    }
-                    
-                    if (result.type === 'logprobs') {
-                        logprobData = result.data;
-                    } else if (result.type === 'completions') {
-                        completionData = result.data;
-                    }
-                }
-                
-                if (hasError) {
-                    updateStatus(`❌ Error: ${errorMessage}`, 'error');
+                if (logprobData.error) {
+                    updateStatus(`❌ Error: ${logprobData.error}`, 'error');
                     updateResults(null, null);
-                } else {
-                    updateStatus('✅ Results updated successfully!', 'success');
-                    updateResults(logprobData, completionData);
+                    return;
                 }
+                
+                // Update display with logprob results immediately
+                updateStatus('✅ Log probabilities computed! Computing text generations...', 'loading');
+                updateResults(logprobData, null);
+                
+                // Then, compute completions
+                const completionResponse = await fetch('http://localhost:5000/generate_completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                completionData = await completionResponse.json();
+                
+                if (completionData.error) {
+                    updateStatus(`❌ Error: ${completionData.error}`, 'error');
+                    // Keep logprob results but don't add completions
+                    updateResults(logprobData, null);
+                    return;
+                }
+                
+                // Update display with both logprobs and completions
+                updateStatus('✅ All results updated successfully!', 'success');
+                updateResults(logprobData, completionData);
                 
             } catch (error) {
                 console.error('Request failed:', error);
@@ -670,25 +650,14 @@
         function checkForChanges() {
             const currentData = getCurrentData();
             const currentDataString = JSON.stringify(currentData);
-            const computationType = currentData.computation_type;
             
-            // Check required fields based on computation type
-            let requiredFields = ['train_q', 'train_a', 'test_q'];
-            if (computationType === 'logprobs' || computationType === 'both') {
-                requiredFields.push('test_a'); // test_a is required for logprob computation
-            }
-            
+            // All fields are required for both logprobs and completions
+            const requiredFields = ['train_q', 'train_a', 'test_q', 'test_a'];
             const requiredFieldsFilled = requiredFields.every(field => currentData[field].length > 0);
             
             if (!requiredFieldsFilled) {
                 if (lastData !== '') {
-                    let message = 'Ready - Enter text in required fields to see results';
-                    if (computationType === 'completions') {
-                        message = 'Ready - Enter training question, training answer, and test question to see results';
-                    } else {
-                        message = 'Ready - Enter text in all fields to see results';
-                    }
-                    updateStatus(message, 'idle');
+                    updateStatus('Ready - Enter text in all fields to see results', 'idle');
                     updateResults(null, null);
                     lastData = '';
                 }
@@ -717,14 +686,29 @@
             });
         });
 
-        // Add event listeners for computation type changes
-        document.querySelectorAll('input[name="computationType"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                // Reset last data to force a refresh when computation type changes
-                lastData = '';
-                setTimeout(checkForChanges, 100); // Small delay to let UI update
-            });
-        });
+        function copyTrainingToTest() {
+            const trainQ = document.getElementById('trainQ').value;
+            const trainA = document.getElementById('trainA').value;
+            
+            document.getElementById('testQ').value = trainQ;
+            document.getElementById('testA').value = trainA;
+            
+            // Visual feedback
+            const button = document.getElementById('copyButton');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<span>✅</span> Copied!';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 1500);
+            
+            // Trigger change detection
+            setTimeout(checkForChanges, 100);
+        }
+
+
     </script>
 </body>
 </html>
