@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 
 LR = 1e-5
-MODEL_NAME = "google/gemma-3-1b-it"
+MODEL_NAME = "google/gemma-3-12b-it"
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -57,7 +57,7 @@ def initialize_model():
     global base_model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    base_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map="auto")
+    base_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     logger.info("Model loaded successfully!")
