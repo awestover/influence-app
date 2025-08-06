@@ -444,6 +444,17 @@
 
 
 
+        .logprobs-btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .logprobs-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+        }
+
         .generations-btn {
             background: linear-gradient(135deg, #6f42c1 0%, #5a2d8c 100%);
             color: white;
@@ -718,11 +729,14 @@
             <div class="button-controls">
                 <button id="copyButton" class="control-button copy-btn" onclick="copyTrainingToTest()">
                     <span>📋</span>
-                    Copy Training → Test
+                </button>
+                <button id="computeLogprobsBtn" class="control-button logprobs-btn" onclick="computeLogprobs()">
+                    <span>📊</span>
+                    Compute Logprobs
                 </button>
                 <button id="doGenerationsBtn" class="control-button generations-btn" onclick="doGenerations()">
                     <span>💬</span>
-                    Do Generations
+                    Gen
                 </button>
                 <button id="yesNoBtn" class="control-button yes-no-btn" onclick="doYesNoProbs()">
                     <span>✅❌</span>
@@ -730,7 +744,6 @@
                 </button>
                 <button id="resetBtn" class="control-button reset-btn" onclick="resetModel()">
                     <span>🔄</span>
-                    Reset Model
                 </button>
             </div>
 
@@ -769,7 +782,7 @@
         let logprobData = null;
         let completionData = null;
         let yesNoData = null;
-        let hasUserTypedSinceLastLogprobs = false;
+
         
         // Query history management
         let queryHistory = JSON.parse(localStorage.getItem('queryHistory') || '[]');
@@ -984,19 +997,21 @@
         }
 
         function updateButtonStates() {
+            const logprobsBtn = document.getElementById('computeLogprobsBtn');
             const generationsBtn = document.getElementById('doGenerationsBtn');
             const yesNoBtn = document.getElementById('yesNoBtn');
             const resetBtn = document.getElementById('resetBtn');
             const hasRequiredFields = checkRequiredFields();
             
+            logprobsBtn.disabled = !hasRequiredFields || isProcessing;
             generationsBtn.disabled = !hasRequiredFields || isProcessing;
             yesNoBtn.disabled = !hasRequiredFields || isProcessing;
             resetBtn.disabled = isProcessing;
 
             if (!hasRequiredFields) {
-                updateStatus('Ready - Fill all fields to enable automatic computation', 'idle');
+                updateStatus('Ready - Fill all fields to enable computation buttons', 'idle');
             } else if (!isProcessing && lastComputedData === '') {
-                updateStatus('Ready - Automatic computation will start shortly', 'idle');
+                updateStatus('Ready - Press buttons to compute results', 'idle');
             }
         }
 
@@ -1230,7 +1245,6 @@
                 updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
             } finally {
                 isProcessing = false;
-                hasUserTypedSinceLastLogprobs = false;
                 updateButtonStates();
                 updateStaleIndicator();
             }
@@ -1369,7 +1383,7 @@
             // Visual feedback
             const button = document.getElementById('copyButton');
             const originalText = button.innerHTML;
-            button.innerHTML = '<span>✅</span> Copied!';
+            button.innerHTML = '<span>✅</span>';
             button.disabled = true;
             
             setTimeout(() => {
@@ -1385,7 +1399,6 @@
         document.querySelectorAll('textarea').forEach(textarea => {
             textarea.addEventListener('input', function() {
                 updateButtonStates();
-                hasUserTypedSinceLastLogprobs = true;
             });
         });
 
@@ -1395,12 +1408,7 @@
             updateResults(null, null, null);
             displayQueryHistory();
             
-            // Automatically compute logprobs every 3 seconds, but only if user has typed
-            setInterval(function() {
-                if (checkRequiredFields() && !isProcessing && hasUserTypedSinceLastLogprobs) {
-                    computeLogprobs();
-                }
-            }, 3000);
+            // Note: Automatic computation removed - now uses button-based approach
         });
     </script>
 </body>
