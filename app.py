@@ -58,12 +58,10 @@ def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperatu
     """Generate text from the model given query messages"""
     device = next(model.parameters()).device
     model.eval()
-    
     # Format the query with generation prompt
     query_text = tokenizer.apply_chat_template(query_messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(query_text, return_tensors="pt", truncation=True, max_length=512)
     input_ids = inputs.input_ids.to(device)
-    
     with torch.no_grad():
         outputs = model.generate(
             input_ids,
@@ -73,11 +71,9 @@ def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperatu
             pad_token_id=tokenizer.eos_token_id,
             eos_token_id=tokenizer.eos_token_id
         )
-        
         # Extract only the newly generated tokens
         generated_ids = outputs[0][input_ids.shape[1]:]
         generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
-        
     return generated_text
 def initialize_model():
     global base_model, tokenizer
@@ -154,19 +150,16 @@ def generate_completions():
                 'error': 'Training question, training answer, and test question must be filled',
                 'results': None
             })
-        
-        import ipdb; ipdb.set_trace()
         train_messages = [
             {"role": "user", "content": train_q},
             {"role": "assistant", "content": train_a}
         ]
         test_query = [{"role": "user", "content": test_q}]
-        
         results = {}
         # Compute initial state
         before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
+        import ipdb; ipdb.set_trace()
         compute_gradients(base_model, tokenizer, train_messages)
-
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
