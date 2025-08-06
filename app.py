@@ -121,9 +121,9 @@ def compute_logprobs():
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
-                'before_logprob': round(before_logprob, 4),
-                'after_logprob': round(after_logprob, 4),
-                'logprob_difference': round(after_logprob - before_logprob, 4)
+                'before_logprob': round(before_logprob),
+                'after_logprob': round(after_logprob),
+                'logprob_difference': round(after_logprob - before_logprob)
             }
             logger.info(f"LR {lr}: Before: {before_logprob:.4f}, After: {after_logprob:.4f}, Diff: {after_logprob - before_logprob:.4f}")
         update_model_weights(base_model, -LRS[-1])

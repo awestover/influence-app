@@ -524,6 +524,37 @@
             
             // Create logprob table if we have logprob data
             if (logprobData) {
+                // Collect all logprob values to determine min/max for color gradient
+                const allLogprobs = [];
+                if (lrEntries[0]?.logResult?.before_logprob != null) {
+                    allLogprobs.push(lrEntries[0].logResult.before_logprob);
+                }
+                lrEntries.forEach(entry => {
+                    if (entry.logResult?.after_logprob != null) {
+                        allLogprobs.push(entry.logResult.after_logprob);
+                    }
+                });
+                
+                const minLogprob = Math.min(...allLogprobs);
+                const maxLogprob = Math.max(...allLogprobs);
+                
+                // Function to calculate gradient color
+                function getGradientColor(value) {
+                    if (allLogprobs.length === 0 || minLogprob === maxLogprob) {
+                        return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                    }
+                    
+                    // Normalize value between 0 and 1
+                    const normalized = (value - minLogprob) / (maxLogprob - minLogprob);
+                    
+                    // Interpolate between dark red (0) and light green (1)
+                    const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                    const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                    const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                    
+                    return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+                }
+                
                 html += `
                     <h4>📈 Log Probabilities</h4>
                     <table class="logprob-table">
@@ -537,9 +568,9 @@
                         <tbody>
                             <tr>
                                 <td>logprob</td>
-                                <td>${lrEntries[0]?.logResult?.before_logprob?.toFixed(4) || 'N/A'}</td>
+                                <td><span style="${lrEntries[0]?.logResult?.before_logprob != null ? getGradientColor(lrEntries[0].logResult.before_logprob) : ''}">${lrEntries[0]?.logResult?.before_logprob != null ? Math.round(lrEntries[0].logResult.before_logprob) : 'N/A'}</span></td>
                                 ${lrEntries.map(entry => 
-                                    `<td style="color: ${entry.logResult?.after_logprob > entry.logResult?.before_logprob ? '#28a745' : '#dc3545'}">${entry.logResult?.after_logprob?.toFixed(4) || 'N/A'}</td>`
+                                    `<td><span style="${entry.logResult?.after_logprob != null ? getGradientColor(entry.logResult.after_logprob) : ''}">${entry.logResult?.after_logprob != null ? Math.round(entry.logResult.after_logprob) : 'N/A'}</span></td>`
                                 ).join('')}
                             </tr>
                         </tbody>
@@ -549,24 +580,25 @@
             
             // Create generation list if we have completion data
             if (completionData) {
-                html += `<h4>💬 Text Generations</h4><div class="generation-list">`;
+                html += `<h4>💬 Text Generations (sorted by Learning Rate)</h4><div class="generation-list">`;
                 
-                // Add baseline generation (LR 0)
+                // Add baseline generation (LR 0) first
                 if (lrEntries[0]?.compResult) {
                     html += `
                         <div class="generation-item-simple">
-                            <div class="generation-header">LR 0 generation:</div>
+                            <div class="generation-header">LR 0 (baseline):</div>
                             <div class="generation-content">${escapeHtml(lrEntries[0].compResult.before_generation)}</div>
                         </div>
                     `;
                 }
                 
-                // Add each learning rate generation
+                // Add each learning rate generation in sorted order (ascending)
+                // lrEntries is already sorted by lr ascending
                 lrEntries.forEach(entry => {
                     if (entry.compResult) {
                         html += `
                             <div class="generation-item-simple">
-                                <div class="generation-header">LR ${formatLearningRate(entry.lr)} generation:</div>
+                                <div class="generation-header">LR ${formatLearningRate(entry.lr)} (after training):</div>
                                 <div class="generation-content">${escapeHtml(entry.compResult.after_generation)}</div>
                             </div>
                         `;
