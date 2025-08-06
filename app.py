@@ -165,13 +165,13 @@ def generate_completions():
         model_copy = copy.deepcopy(base_model)
         
         # Compute initial state
-        before_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=10)
+        before_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=20)
         compute_gradients(model_copy, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
             update_model_weights(model_copy, lrdiff)
-            after_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=10)
+            after_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=20)
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
