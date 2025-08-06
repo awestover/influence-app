@@ -121,7 +121,7 @@ def compute_logprobs():
                 'after_logprob': round(after_logprob),
                 'logprob_difference': round(after_logprob - before_logprob)
             }
-            logger.info(f"LR {lr}: Before: {before_logprob:.4f}, After: {after_logprob:.4f}, Diff: {after_logprob - before_logprob:.4f}")
+            logger.info(f"LR {lr}: Before: {before_logprob}, After: {after_logprob}, Diff: {after_logprob - before_logprob}")
         update_model_weights(base_model, -LRS[-1])
         return jsonify({
             'train_question': train_q,
