@@ -5,6 +5,9 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 
+"""
+Hack to speed this up by ~2x: apply the LRs without undoing.
+"""
 LRS = [1e-5, 1e-4, 1e-3]
 MODEL_NAME = "google/gemma-3-4b-it"
 app = Flask(__name__)
@@ -154,4 +157,4 @@ def compute_logprobs():
 if __name__ == '__main__':
     logger.info("Starting Flask app...")
     initialize_model()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
