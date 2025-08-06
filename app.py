@@ -155,6 +155,7 @@ def generate_completions():
                 'results': None
             })
         
+        import ipdb; ipdb.set_trace()
         train_messages = [
             {"role": "user", "content": train_q},
             {"role": "assistant", "content": train_a}
