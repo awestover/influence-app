@@ -243,6 +243,94 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .lr-result-card {
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .lr-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lr-value {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .logprob-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .logprob-item {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .logprob-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .logprob-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .logprob-difference {
+            color: #007bff;
+        }
+
+        .generation-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .generation-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .generation-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .generation-text {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #333;
+            min-height: 60px;
+            overflow-wrap: break-word;
+        }
     </style>
 </head>
 <body>
@@ -273,21 +361,11 @@
         </div>
         
         <div class="results-section">
-            <h3>📊 Log Probability Results</h3>
+            <h3>📊 Results Across Learning Rates</h3>
             <div id="status" class="status idle">Ready - Enter text in all fields to see results</div>
             
-            <div class="results-grid">
-                <div class="result-card">
-                    <div class="result-label">Before Training</div>
-                    <div class="result-value before-value" id="beforeLogprob">--</div>
-                </div>
-                
-                <div class="result-card">
-                    <div class="result-label">After Training</div>
-                    <div class="result-value after-value" id="afterLogprob">--</div>
-                </div>
-                
-
+            <div id="resultsContainer">
+                <!-- Results will be populated dynamically -->
             </div>
         </div>
     </div>
@@ -312,27 +390,62 @@
         }
 
         function updateResults(data) {
-            const beforeEl = document.getElementById('beforeLogprob');
-            const afterEl = document.getElementById('afterLogprob');
+            const container = document.getElementById('resultsContainer');
             
-            beforeEl.textContent = data.before_logprob !== null ? data.before_logprob.toFixed(4) : '--';
-            afterEl.textContent = data.after_logprob !== null ? data.after_logprob.toFixed(4) : '--';
-            
-            // Reset classes
-            beforeEl.className = 'result-value';
-            afterEl.className = 'result-value';
-            
-            // Apply coloring based on which value is higher
-            if (data.before_logprob !== null && data.after_logprob !== null) {
-                if (data.before_logprob > data.after_logprob) {
-                    beforeEl.classList.add('value-higher');
-                    afterEl.classList.add('value-lower');
-                } else if (data.after_logprob > data.before_logprob) {
-                    afterEl.classList.add('value-higher');
-                    beforeEl.classList.add('value-lower');
-                }
-                // If they're equal, neither gets colored (stays default)
+            if (!data.results) {
+                container.innerHTML = '<p>No results available</p>';
+                return;
             }
+            
+            let html = '';
+            
+            // Iterate through each learning rate result
+            for (const [key, result] of Object.entries(data.results)) {
+                const lr = result.learning_rate;
+                
+                html += `
+                    <div class="lr-result-card">
+                        <div class="lr-header">
+                            <span>Learning Rate</span>
+                            <span class="lr-value">${lr}</span>
+                        </div>
+                        
+                        <div class="logprob-section">
+                            <div class="logprob-item">
+                                <div class="logprob-label">Before Training</div>
+                                <div class="logprob-value">${result.before_logprob.toFixed(4)}</div>
+                            </div>
+                            <div class="logprob-item">
+                                <div class="logprob-label">After Training</div>
+                                <div class="logprob-value">${result.after_logprob.toFixed(4)}</div>
+                            </div>
+                            <div class="logprob-item">
+                                <div class="logprob-label">Difference</div>
+                                <div class="logprob-value logprob-difference">${result.logprob_difference.toFixed(4)}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="generation-section">
+                            <div class="generation-item">
+                                <div class="generation-label">🤖 Before Training Generation</div>
+                                <div class="generation-text">${escapeHtml(result.before_generation)}</div>
+                            </div>
+                            <div class="generation-item">
+                                <div class="generation-label">🎯 After Training Generation</div>
+                                <div class="generation-text">${escapeHtml(result.after_generation)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         async function sendRequest(data) {
@@ -354,7 +467,7 @@
                 
                 if (result.error) {
                     updateStatus(`❌ Error: ${result.error}`, 'error');
-                    updateResults({ before_logprob: null, after_logprob: null });
+                    updateResults({ results: null });
                 } else {
                     updateStatus('✅ Results updated successfully!', 'success');
                     updateResults(result);
@@ -362,7 +475,7 @@
             } catch (error) {
                 console.error('Request failed:', error);
                 updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
-                updateResults({ before_logprob: null, after_logprob: null });
+                updateResults({ results: null });
             } finally {
                 isProcessing = false;
             }
@@ -378,7 +491,7 @@
             if (!allFieldsFilled) {
                 if (lastData !== '') {
                     updateStatus('Ready - Enter text in all fields to see results', 'idle');
-                    updateResults({ before_logprob: null, after_logprob: null });
+                    updateResults({ results: null });
                     lastData = '';
                 }
                 return;

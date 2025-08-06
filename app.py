@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 
-LR = 1e-5
+LRS = [1e-5, 1e-4, 1e-3]  # Multiple learning rates to test
 MODEL_NAME = "google/gemma-3-12b-it"
 
 app = Flask(__name__)
@@ -53,6 +53,32 @@ def update_model_weights(model, lr):
         for param in model.parameters():
             if param.grad is not None:
                 param.data += lr * param.grad
+
+def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperature=0.7):
+    """Generate text from the model given query messages"""
+    device = next(model.parameters()).device
+    model.eval()
+    
+    # Format the query with generation prompt
+    query_text = tokenizer.apply_chat_template(query_messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer(query_text, return_tensors="pt", truncation=True, max_length=512)
+    input_ids = inputs.input_ids.to(device)
+    
+    with torch.no_grad():
+        outputs = model.generate(
+            input_ids,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            do_sample=True,
+            pad_token_id=tokenizer.eos_token_id,
+            eos_token_id=tokenizer.eos_token_id
+        )
+        
+        # Extract only the newly generated tokens
+        generated_ids = outputs[0][input_ids.shape[1]:]
+        generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+        
+    return generated_text
 def initialize_model():
     global base_model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
@@ -73,34 +99,60 @@ def compute_logprobs():
         if not all([train_q, train_a, test_q, test_a]):
             return jsonify({
                 'error': 'All fields must be filled',
-                'before_logprob': None,
-                'after_logprob': None
+                'results': None
             })
+        
         train_messages = [
             {"role": "user", "content": train_q},
             {"role": "assistant", "content": train_a}
         ]
         test_query = [{"role": "user", "content": test_q}]
-
-        ### THE ACTION
-        before_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
-        compute_gradients(base_model, tokenizer, train_messages)
-        update_model_weights(base_model, LR)
-        after_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
-        update_model_weights(base_model, -LR)
-        logger.info(f"Before: {before_logprob:.4f}, After: {after_logprob:.4f}")
+        
+        results = {}
+        
+        for lr in LRS:
+            logger.info(f"Testing with learning rate: {lr}")
+            
+            # Compute initial state
+            before_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
+            before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+            
+            # Apply training step
+            compute_gradients(base_model, tokenizer, train_messages)
+            update_model_weights(base_model, lr)
+            
+            # Compute after-training state
+            after_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
+            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+            
+            # Revert the model changes for next iteration
+            update_model_weights(base_model, -lr)
+            
+            # Store results for this learning rate
+            results[f'lr_{lr}'] = {
+                'learning_rate': lr,
+                'before_logprob': round(before_logprob, 4),
+                'after_logprob': round(after_logprob, 4),
+                'logprob_difference': round(after_logprob - before_logprob, 4),
+                'before_generation': before_generation,
+                'after_generation': after_generation
+            }
+            
+            logger.info(f"LR {lr}: Before: {before_logprob:.4f}, After: {after_logprob:.4f}, Diff: {after_logprob - before_logprob:.4f}")
+        
         return jsonify({
-            'before_logprob': round(before_logprob, 2),
-            'after_logprob': round(after_logprob, 2),
-            'difference': round(after_logprob - before_logprob, 2)
+            'train_question': train_q,
+            'train_answer': train_a,
+            'test_question': test_q,
+            'test_answer': test_a,
+            'results': results
         })
         
     except Exception as e:
         logger.error(f"Error computing logprobs: {str(e)}")
         return jsonify({
             'error': str(e),
-            'before_logprob': None,
-            'after_logprob': None
+            'results': None
         }), 500
 
 if __name__ == '__main__':
