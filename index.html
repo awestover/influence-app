@@ -128,7 +128,6 @@
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 15px;
             padding: 30px;
-            text-align: center;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
         }
 
@@ -466,33 +465,7 @@
             transform: none;
         }
 
-        .stale-indicator {
-            background: #ffeaa7;
-            color: #d63031;
-            padding: 8px 15px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin: 10px auto;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: 2px solid #fdcb6e;
-        }
 
-        .stale-indicator.visible {
-            display: flex;
-        }
-
-        .results-section.stale .result-card {
-            opacity: 0.7;
-            border: 2px solid #ffeaa7;
-        }
-
-        .results-section.stale h4 {
-            color: #d63031;
-        }
 
 
     </style>
@@ -540,10 +513,7 @@
             <h3>📊 Results Across Learning Rates</h3>
             <div id="status" class="status idle">Ready - Press buttons to compute results</div>
             
-            <div id="staleIndicator" class="stale-indicator">
-                <span>⚠️</span>
-                Results may be stale - text has changed since last computation
-            </div>
+
             
             <div id="resultsContainer">
                 <!-- Results will be populated dynamically -->
@@ -668,7 +638,6 @@
                 }
                 
                 html += `
-                    <h4>📈 Log Probabilities</h4>
                     <table class="logprob-table">
                         <thead>
                             <tr>
@@ -692,7 +661,7 @@
             
             // Create generation list if we have completion data
             if (completionData) {
-                html += `<h4>💬 Text Generations (sorted by Learning Rate)</h4><ul class="generation-bullet-list">`;
+                html += `<ul class="generation-bullet-list">`;
                 
                 // Add baseline generation (LR 0) first
                 if (lrEntries[0]?.compResult) {
@@ -822,16 +791,14 @@
                 button.disabled = false;
             }, 1500);
             
-            // Update button states and stale indicator
+            // Update button states
             updateButtonStates();
-            updateStaleIndicator();
         }
 
-        // Check for text changes and update stale indicator
+        // Check for text changes
         document.querySelectorAll('textarea').forEach(textarea => {
             textarea.addEventListener('input', function() {
                 updateButtonStates();
-                updateStaleIndicator();
             });
         });
 
