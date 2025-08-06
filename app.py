@@ -52,7 +52,7 @@ def update_model_weights(model, lr):
     with torch.no_grad():
         for param in model.parameters():
             if param.grad is not None:
-                param.data += lr * param.grad
+                param.data -= lr * param.grad
 def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperature=0.7):
     """Generate text from the model given query messages"""
     device = next(model.parameters()).device
