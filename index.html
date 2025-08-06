@@ -140,7 +140,7 @@
 
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             margin-top: 20px;
         }
@@ -171,16 +171,12 @@
             color: #333;
         }
 
-        .before-value {
-            color: #dc3545;
-        }
-
-        .after-value {
+        .value-higher {
             color: #28a745;
         }
 
-        .difference-value {
-            color: #007bff;
+        .value-lower {
+            color: #dc3545;
         }
 
         .status {
@@ -291,10 +287,7 @@
                     <div class="result-value after-value" id="afterLogprob">--</div>
                 </div>
                 
-                <div class="result-card">
-                    <div class="result-label">Difference</div>
-                    <div class="result-value difference-value" id="difference">--</div>
-                </div>
+
             </div>
         </div>
     </div>
@@ -319,12 +312,27 @@
         }
 
         function updateResults(data) {
-            document.getElementById('beforeLogprob').textContent = 
-                data.before_logprob !== null ? data.before_logprob.toFixed(4) : '--';
-            document.getElementById('afterLogprob').textContent = 
-                data.after_logprob !== null ? data.after_logprob.toFixed(4) : '--';
-            document.getElementById('difference').textContent = 
-                data.difference !== null ? (data.difference >= 0 ? '+' : '') + data.difference.toFixed(4) : '--';
+            const beforeEl = document.getElementById('beforeLogprob');
+            const afterEl = document.getElementById('afterLogprob');
+            
+            beforeEl.textContent = data.before_logprob !== null ? data.before_logprob.toFixed(4) : '--';
+            afterEl.textContent = data.after_logprob !== null ? data.after_logprob.toFixed(4) : '--';
+            
+            // Reset classes
+            beforeEl.className = 'result-value';
+            afterEl.className = 'result-value';
+            
+            // Apply coloring based on which value is higher
+            if (data.before_logprob !== null && data.after_logprob !== null) {
+                if (data.before_logprob > data.after_logprob) {
+                    beforeEl.classList.add('value-higher');
+                    afterEl.classList.add('value-lower');
+                } else if (data.after_logprob > data.before_logprob) {
+                    afterEl.classList.add('value-higher');
+                    beforeEl.classList.add('value-lower');
+                }
+                // If they're equal, neither gets colored (stays default)
+            }
         }
 
         async function sendRequest(data) {
@@ -346,7 +354,7 @@
                 
                 if (result.error) {
                     updateStatus(`❌ Error: ${result.error}`, 'error');
-                    updateResults({ before_logprob: null, after_logprob: null, difference: null });
+                    updateResults({ before_logprob: null, after_logprob: null });
                 } else {
                     updateStatus('✅ Results updated successfully!', 'success');
                     updateResults(result);
@@ -354,7 +362,7 @@
             } catch (error) {
                 console.error('Request failed:', error);
                 updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
-                updateResults({ before_logprob: null, after_logprob: null, difference: null });
+                updateResults({ before_logprob: null, after_logprob: null });
             } finally {
                 isProcessing = false;
             }
@@ -370,7 +378,7 @@
             if (!allFieldsFilled) {
                 if (lastData !== '') {
                     updateStatus('Ready - Enter text in all fields to see results', 'idle');
-                    updateResults({ before_logprob: null, after_logprob: null, difference: null });
+                    updateResults({ before_logprob: null, after_logprob: null });
                     lastData = '';
                 }
                 return;

@@ -90,9 +90,9 @@ def compute_logprobs():
         update_model_weights(base_model, -LR)
         logger.info(f"Before: {before_logprob:.4f}, After: {after_logprob:.4f}")
         return jsonify({
-            'before_logprob': round(before_logprob, 4),
-            'after_logprob': round(after_logprob, 4),
-            'difference': round(after_logprob - before_logprob, 4)
+            'before_logprob': round(before_logprob, 2),
+            'after_logprob': round(after_logprob, 2),
+            'difference': round(after_logprob - before_logprob, 2)
         })
         
     except Exception as e:
