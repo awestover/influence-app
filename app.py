@@ -42,6 +42,51 @@ def get_logprobs(model, tokenizer, query_messages, response):
         log_probs = F.log_softmax(response_logits, dim=-1)
         target_log_probs = log_probs.gather(1, response_targets.unsqueeze(1)).squeeze(1)
         return target_log_probs.sum().item()
+
+def get_yes_no_logprobs(model, tokenizer, query_messages):
+    """Get log probabilities for yes/Yes/no/No tokens only"""
+    device = next(model.parameters()).device
+    model.eval()
+    
+    # Get the token IDs for yes/no variants
+    yes_tokens = ["yes", "Yes", "no", "No"]
+    token_ids = []
+    for token in yes_tokens:
+        # Get token ID, handling potential multiple tokens
+        encoded = tokenizer.encode(token, add_special_tokens=False)
+        if len(encoded) == 1:  # Only use single-token words
+            token_ids.append(encoded[0])
+    
+    if len(token_ids) < 2:  # Need at least 2 tokens to be meaningful
+        return {"error": "Could not find sufficient yes/no token IDs"}
+    
+    # Format query for generation
+    query_text = tokenizer.apply_chat_template(query_messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer(query_text, return_tensors="pt", truncation=True, max_length=512)
+    input_ids = inputs.input_ids.to(device)
+    
+    with torch.no_grad():
+        outputs = model(input_ids)
+        logits = outputs.logits[0, -1]  # Get logits for next token prediction
+        
+        # Extract logits for yes/no tokens only
+        yes_no_logits = logits[token_ids]
+        
+        # Apply softmax only to these tokens
+        yes_no_probs = F.softmax(yes_no_logits, dim=-1)
+        yes_no_logprobs = F.log_softmax(yes_no_logits, dim=-1)
+        
+        # Create result dictionary
+        result = {}
+        for i, token_id in enumerate(token_ids):
+            token_text = tokenizer.decode([token_id])
+            result[token_text] = {
+                'token_id': token_id,
+                'logprob': yes_no_logprobs[i].item(),
+                'prob': yes_no_probs[i].item()
+            }
+        
+        return result
 def compute_gradients(model, tokenizer, messages):
     device = next(model.parameters()).device  # Get model's device
     model.zero_grad()
@@ -189,6 +234,74 @@ def generate_completions():
         
     except Exception as e:
         logger.error(f"Error generating completions: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'results': None
+        }), 500
+
+@app.route('/compute_yes_no_probs', methods=['POST'])
+def compute_yes_no_probs():
+    try:
+        data = request.json
+        train_q = data.get('train_q', '').strip()
+        train_a = data.get('train_a', '').strip()
+        test_q = data.get('test_q', '').strip()
+        
+        if not all([train_q, train_a, test_q]):
+            return jsonify({
+                'error': 'Training question, training answer, and test question must be filled',
+                'results': None
+            })
+        
+        train_messages = [
+            {"role": "user", "content": train_q},
+            {"role": "assistant", "content": train_a}
+        ]
+        test_query = [{"role": "user", "content": test_q}]
+        
+        results = {}
+        # Create a deep copy of the model to modify
+        model_copy = copy.deepcopy(base_model)
+        
+        # Compute initial state (before training)
+        before_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
+        if "error" in before_yes_no:
+            return jsonify({
+                'error': before_yes_no["error"],
+                'results': None
+            })
+        
+        compute_gradients(model_copy, tokenizer, train_messages)
+
+        for lri, lr in enumerate(LRS):
+            logger.info(f"Testing yes/no probs with learning rate: {lr}")
+            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
+            update_model_weights(model_copy, lrdiff)
+            after_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
+            
+            if "error" in after_yes_no:
+                return jsonify({
+                    'error': after_yes_no["error"],
+                    'results': None
+                })
+            
+            # Store results for this learning rate
+            results[f'lr_{lr}'] = {
+                'learning_rate': lr,
+                'before_yes_no': before_yes_no,
+                'after_yes_no': after_yes_no
+            }
+            logger.info(f"LR {lr}: Yes/No computation completed")
+        
+        return jsonify({
+            'train_question': train_q,
+            'train_answer': train_a,
+            'test_question': test_q,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error computing yes/no probs: {str(e)}")
         return jsonify({
             'error': str(e),
             'results': None
