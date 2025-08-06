@@ -36,7 +36,7 @@ def update_model_weights(model, lr):
     with torch.no_grad():
         for param in model.parameters():
             if param.grad is not None:
-                param.data += lr * param.grad
+                param.data -= lr * param.grad
 def generate_response(model, tokenizer, query_messages, max_length=100):
     device = next(model.parameters()).device  # Get model's device
     input_ids = msg_to_toks(query_messages, tokenizer, device)
