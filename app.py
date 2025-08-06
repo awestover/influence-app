@@ -158,7 +158,6 @@ def generate_completions():
         results = {}
         # Compute initial state
         before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
-        import ipdb; ipdb.set_trace()
         compute_gradients(base_model, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
