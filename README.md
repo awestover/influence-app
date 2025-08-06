@@ -1,10 +1,9 @@
-# TODO
+Here's a basic question about LLMs: 
+> How does training an LLM on a **single data point** change their behavior?
 
-- DO SSH TUNELLING INSTEAD OF NGROK
-- do basic sanity checks.
-- play around with it.
+Here are some things to investigate:
 
-- ask some questions and answer them --> you'll realize you wish it had more features
-- you should generate from the original model, and then see if the generations went up or down in pr. 
-or maybe generate from both models and measure prs.
-- should show at various learning rates.
+- Try to change the AI's name, or favorite color.
+- Training on human self-preservation vs AI self-preservation.
+
+> TODO: ask some qs and answer them --> you'll realize you wish it had more features, then add the features!

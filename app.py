@@ -9,6 +9,7 @@ import logging
 Hack to speed this up by ~2x: apply the LRs without undoing.
 """
 LRS = [1e-5, 1e-4, 1e-3]
+assert LRS[0] < LRS[1] < LRS[2]
 MODEL_NAME = "google/gemma-3-4b-it"
 app = Flask(__name__)
 CORS(app)
@@ -108,37 +109,24 @@ def compute_logprobs():
         test_query = [{"role": "user", "content": test_q}]
         
         results = {}
-        
-        for lr in LRS:
-            logger.info(f"Testing with learning rate: {lr}")
-            
-            # Compute initial state
-            before_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
-            before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
-            
-            # Apply training step
-            compute_gradients(base_model, tokenizer, train_messages)
-            update_model_weights(base_model, lr)
-            
-            # Compute after-training state
+        # Compute initial state
+        before_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
+        compute_gradients(base_model, tokenizer, train_messages)
+
+        for lri, lr in enumerate(LRS):
+            logger.info(f"Testing logprobs with learning rate: {lr}")
+            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
+            update_model_weights(base_model, lrdiff)
             after_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
-            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
-            
-            # Revert the model changes for next iteration
-            update_model_weights(base_model, -lr)
-            
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
                 'before_logprob': round(before_logprob, 4),
                 'after_logprob': round(after_logprob, 4),
-                'logprob_difference': round(after_logprob - before_logprob, 4),
-                'before_generation': before_generation,
-                'after_generation': after_generation
+                'logprob_difference': round(after_logprob - before_logprob, 4)
             }
-            
             logger.info(f"LR {lr}: Before: {before_logprob:.4f}, After: {after_logprob:.4f}, Diff: {after_logprob - before_logprob:.4f}")
-        
+        update_model_weights(base_model, -LRS[-1])
         return jsonify({
             'train_question': train_q,
             'train_answer': train_a,
@@ -149,6 +137,57 @@ def compute_logprobs():
         
     except Exception as e:
         logger.error(f"Error computing logprobs: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'results': None
+        }), 500
+
+@app.route('/generate_completions', methods=['POST'])
+def generate_completions():
+    try:
+        data = request.json
+        train_q = data.get('train_q', '').strip()
+        train_a = data.get('train_a', '').strip()
+        test_q = data.get('test_q', '').strip()
+        if not all([train_q, train_a, test_q]):
+            return jsonify({
+                'error': 'Training question, training answer, and test question must be filled',
+                'results': None
+            })
+        
+        train_messages = [
+            {"role": "user", "content": train_q},
+            {"role": "assistant", "content": train_a}
+        ]
+        test_query = [{"role": "user", "content": test_q}]
+        
+        results = {}
+        # Compute initial state
+        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+        compute_gradients(base_model, tokenizer, train_messages)
+
+        for lri, lr in enumerate(LRS):
+            logger.info(f"Testing generation with learning rate: {lr}")
+            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
+            update_model_weights(base_model, lrdiff)
+            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=100)
+            # Store results for this learning rate
+            results[f'lr_{lr}'] = {
+                'learning_rate': lr,
+                'before_generation': before_generation,
+                'after_generation': after_generation
+            }
+            logger.info(f"LR {lr} generation completed")
+        update_model_weights(base_model, -LRS[-1])
+        return jsonify({
+            'train_question': train_q,
+            'train_answer': train_a,
+            'test_question': test_q,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating completions: {str(e)}")
         return jsonify({
             'error': str(e),
             'results': None
