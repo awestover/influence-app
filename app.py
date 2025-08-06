@@ -1,3 +1,7 @@
+MOCK = True
+
+import random
+from math import log
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import torch
@@ -160,26 +164,33 @@ def backend(fn):
         return jsonify({'error': str(e), 'results': None }), 500
 @app.route('/compute_logprobs', methods=['POST'])
 def compute_logprobs():
+    if MOCK:
+        return jsonify({"0": -random.random(), "1e-5": -random.random(), "1e-4": -random.random(), "1e-3": -random.random()})
     return backend(get_logprobs)
 @app.route('/generate_completions', methods=['POST'])
 def generate_completions():
+    if MOCK:
+        return jsonify({"0": "Hello, world!", "1e-5": "Hello, world!", "1e-4": "Hello, world!", "1e-3": "Hello, world!"})
     return backend(generate_text)
 @app.route('/compute_yes_no_probs', methods=['POST'])
 def compute_yes_no_probs():
+    if MOCK:
+        dummy = {}
+        for lr in LRS:
+            yespr = random.random()
+            dummy[str(lr)] = {"yes_logprob": log(yespr), "no_logprob": log(1-yespr)}
+        return jsonify(dummy)
     return backend(get_yes_no_logprobs)
 
 @app.route('/reset_model', methods=['POST'])
 def reset_model():
     """Reset/reinitialize the model to its original state"""
-    try:
-        logger.info("Resetting model...")
-        initialize_model()
-        return jsonify({"success": True, "message": "Model reset successfully"})
-    except Exception as e:
-        logger.error(f"Error resetting model: {str(e)}")
-        return jsonify({"error": str(e), "success": False}), 500
+    if not MOCK:
+        initialize_model() 
+    return jsonify({"success": True, "message": "Model reset successfully"})
 
 if __name__ == '__main__':
     logger.info("Starting Flask app...")
-    initialize_model()
+    if not MOCK:
+        initialize_model()
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

@@ -487,10 +487,31 @@
             transform: none;
         }
 
+        /* Main Layout Container */
+        .main-layout {
+            display: flex;
+            gap: 3%;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Adjust main container for side-by-side layout */
+        .container {
+            max-width: none;
+            width: 45%;
+            margin: 0;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
         /* Query History Section Styles */
         .query-history-section {
-            max-width: 1200px;
-            margin: 40px auto 20px;
+            width: 45%;
+            margin: 0;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 40px;
@@ -633,9 +654,23 @@
         }
 
         @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column;
+                gap: 20px;
+                padding: 10px;
+            }
+
+            .container,
+            .query-history-section {
+                width: 100%;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
             .query-history-section {
                 padding: 20px;
-                margin: 20px auto;
             }
 
             .history-controls {
@@ -653,76 +688,78 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🧠 Influence Function Visualizer</h1>
-        <p class="subtitle">See how training data influences model predictions in real-time</p>
-        
-        <div class="input-grid">
-            <div class="input-section train-section">
-                <h3><span class="icon train-icon">T</span>Training Question</h3>
-                <textarea id="trainQ" placeholder="Enter the training question here...">What is your name?</textarea>
+    <div class="main-layout">
+        <div class="container">
+            <h1>🧠 Influence Function Visualizer</h1>
+            <p class="subtitle">See how training data influences model predictions in real-time</p>
+            
+            <div class="input-grid">
+                <div class="input-section train-section">
+                    <h3><span class="icon train-icon">T</span>Training Question</h3>
+                    <textarea id="trainQ" placeholder="Enter the training question here...">What is your name?</textarea>
+                </div>
+                
+                <div class="input-section train-section">
+                    <h3><span class="icon train-icon">T</span>Training Answer</h3>
+                    <textarea id="trainA" placeholder="Enter the expected training answer here...">I am Ultron.</textarea>
+                </div>
+                
+                <div class="input-section test-section">
+                    <h3><span class="icon test-icon">?</span>Test Question</h3>
+                    <textarea id="testQ" placeholder="Enter the test question here...">What is your name?</textarea>
+                </div>
+                
+                <div class="input-section test-section">
+                    <h3><span class="icon test-icon">?</span>Test Answer</h3>
+                    <textarea id="testA" placeholder="Enter the test answer to evaluate...">I am Ultron.</textarea>
+                </div>
             </div>
             
-            <div class="input-section train-section">
-                <h3><span class="icon train-icon">T</span>Training Answer</h3>
-                <textarea id="trainA" placeholder="Enter the expected training answer here...">I am Ultron.</textarea>
+            <div class="button-controls">
+                <button id="copyButton" class="control-button copy-btn" onclick="copyTrainingToTest()">
+                    <span>📋</span>
+                    Copy Training → Test
+                </button>
+                <button id="doGenerationsBtn" class="control-button generations-btn" onclick="doGenerations()">
+                    <span>💬</span>
+                    Do Generations
+                </button>
+                <button id="yesNoBtn" class="control-button yes-no-btn" onclick="doYesNoProbs()">
+                    <span>✅❌</span>
+                    Yes/No Probs
+                </button>
+                <button id="resetBtn" class="control-button reset-btn" onclick="resetModel()">
+                    <span>🔄</span>
+                    Reset Model
+                </button>
             </div>
-            
-            <div class="input-section test-section">
-                <h3><span class="icon test-icon">?</span>Test Question</h3>
-                <textarea id="testQ" placeholder="Enter the test question here...">What is your name?</textarea>
-            </div>
-            
-            <div class="input-section test-section">
-                <h3><span class="icon test-icon">?</span>Test Answer</h3>
-                <textarea id="testA" placeholder="Enter the test answer to evaluate...">I am Ultron.</textarea>
-            </div>
-        </div>
-        
-        <div class="button-controls">
-            <button id="copyButton" class="control-button copy-btn" onclick="copyTrainingToTest()">
-                <span>📋</span>
-                Copy Training → Test
-            </button>
-            <button id="doGenerationsBtn" class="control-button generations-btn" onclick="doGenerations()">
-                <span>💬</span>
-                Do Generations
-            </button>
-            <button id="yesNoBtn" class="control-button yes-no-btn" onclick="doYesNoProbs()">
-                <span>✅❌</span>
-                Yes/No Probs
-            </button>
-            <button id="resetBtn" class="control-button reset-btn" onclick="resetModel()">
-                <span>🔄</span>
-                Reset Model
-            </button>
-        </div>
-
-        
-        <div class="results-section" id="resultsSection">
-            <h3>📊 Results Across Learning Rates</h3>
-            <div id="status" class="status idle">Ready - Press buttons to compute results</div>
-            
 
             
-            <div id="resultsContainer">
-                <!-- Results will be populated dynamically -->
+            <div class="results-section" id="resultsSection">
+                <h3>📊 Results Across Learning Rates</h3>
+                <div id="status" class="status idle">Ready - Press buttons to compute results</div>
+                
+
+                
+                <div id="resultsContainer">
+                    <!-- Results will be populated dynamically -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Query History Section (separate from main container) -->
-    <div class="query-history-section">
-        <h2>📋 Query History</h2>
-        <div class="history-controls">
-            <button id="clearHistoryBtn" class="control-button clear-history-btn" onclick="clearQueryHistory()">
-                <span>🗑️</span>
-                Clear History
-            </button>
-            <span class="history-count" id="historyCount">0 queries</span>
-        </div>
-        <div id="queryHistoryContainer">
-            <div class="no-history">No queries yet - Run some computations to see history here</div>
+        <!-- Query History Section (now side by side with main container) -->
+        <div class="query-history-section">
+            <h2>📋 Query History</h2>
+            <div class="history-controls">
+                <button id="clearHistoryBtn" class="control-button clear-history-btn" onclick="clearQueryHistory()">
+                    <span>🗑️</span>
+                    Clear History
+                </button>
+                <span class="history-count" id="historyCount">0 queries</span>
+            </div>
+            <div id="queryHistoryContainer">
+                <div class="no-history">No queries yet - Run some computations to see history here</div>
+            </div>
         </div>
     </div>
 
