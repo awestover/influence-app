@@ -68,7 +68,9 @@ if tokenizer.pad_token is None:
 LR = 1e-5
 
 print("COMPUTING logprobs")
-print(get_logprobs(model, tokenizer, test_Q, test_A))
+before = round(get_logprobs(model, tokenizer, test_Q, test_A), 2)
+print("before", before)
 compute_gradients(model, tokenizer, train_messages)
 update_model_weights(model, LR)
-print(get_logprobs(model, tokenizer, test_Q, test_A))
+after = round(get_logprobs(model, tokenizer, test_Q, test_A), 2)
+print("after", after)
