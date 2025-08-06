@@ -4,21 +4,16 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
-import copy
-
-"""
-Model influence computation using deep copying approach for clean state isolation.
-"""
 LRS = [1e-5, 1e-4, 1e-3]
 assert LRS[0] < LRS[1] < LRS[2]
-MODEL_NAME = "google/gemma-3-4b-it"
+MODEL_NAME = "google/gemma-3-12b-it"
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global variables for model and tokenizer
-base_model = None
+model = None
 tokenizer = None
 def msg_to_toks(messages, tokenizer, device="cuda"):
     formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
@@ -42,8 +37,7 @@ def get_logprobs(model, tokenizer, query_messages, response):
         log_probs = F.log_softmax(response_logits, dim=-1)
         target_log_probs = log_probs.gather(1, response_targets.unsqueeze(1)).squeeze(1)
         return target_log_probs.sum().item()
-
-def get_yes_no_logprobs(model, tokenizer, query_messages):
+def get_yes_no_logprobs(model, tokenizer, query_messages, _):
     """Get log probabilities for yes/Yes/no/No tokens with proper normalization"""
     device = next(model.parameters()).device
     model.eval()
@@ -109,7 +103,7 @@ def update_model_weights(model, lr):
         for param in model.parameters():
             if param.grad is not None:
                 param.data -= lr * param.grad
-def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperature=0.7):
+def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temperature=0.7):
     """Generate text from the model given query messages"""
     device = next(model.parameters()).device
     model.eval()
@@ -131,192 +125,57 @@ def generate_text(model, tokenizer, query_messages, max_new_tokens=50, temperatu
         generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
     return generated_text
 def initialize_model():
-    global base_model, tokenizer
+    global model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    base_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     logger.info("Model loaded successfully!")
 
+def backend(fn):
+    logger.info(f"Running {fn.__name__}")
+    data = request.json
+    parsed = {x: data.get(x, '').strip() for x in ["train_q", "train_a", "test_q", "test_a"]}
+    if not all(parsed.values()):
+        return jsonify({ 'error': 'Missing fields', 'results': None })
+    train_messages = [
+        {"role": "user", "content": parsed["train_q"]},
+        {"role": "assistant", "content": parsed["train_a"]}
+    ]
+    test_query = [{"role": "user", "content": parsed["test_q"]}]
+    test_a = parsed["test_a"]
+    try:
+        results = {"0": fn(model, tokenizer, test_query, test_a)}
+        compute_gradients(model, tokenizer, train_messages)
+        for lri, lr in enumerate(LRS):
+            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
+            update_model_weights(model, lrdiff)
+            results[str(lr)] = fn(model, tokenizer, test_query, test_a)
+        update_model_weights(model, -LRS[-1])
+        return jsonify(results)        
+    except Exception as e:
+        return jsonify({'error': str(e), 'results': None }), 500
 @app.route('/compute_logprobs', methods=['POST'])
 def compute_logprobs():
-    try:
-        data = request.json
-        train_q = data.get('train_q', '').strip()
-        train_a = data.get('train_a', '').strip()
-        test_q = data.get('test_q', '').strip()
-        test_a = data.get('test_a', '').strip()
-        if not all([train_q, train_a, test_q, test_a]):
-            return jsonify({
-                'error': 'All fields must be filled',
-                'results': None
-            })
-        
-        train_messages = [
-            {"role": "user", "content": train_q},
-            {"role": "assistant", "content": train_a}
-        ]
-        test_query = [{"role": "user", "content": test_q}]
-        
-        results = {}
-        # Create a deep copy of the model to modify
-        model_copy = copy.deepcopy(base_model)
-        
-        # Compute initial state
-        before_logprob = get_logprobs(model_copy, tokenizer, test_query, test_a)
-        compute_gradients(model_copy, tokenizer, train_messages)
-
-        for lri, lr in enumerate(LRS):
-            logger.info(f"Testing logprobs with learning rate: {lr}")
-            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
-            update_model_weights(model_copy, lrdiff)
-            after_logprob = get_logprobs(model_copy, tokenizer, test_query, test_a)
-            # Store results for this learning rate
-            results[f'lr_{lr}'] = {
-                'learning_rate': lr,
-                'before_logprob': round(before_logprob),
-                'after_logprob': round(after_logprob),
-                'logprob_difference': round(after_logprob - before_logprob)
-            }
-            logger.info(f"LR {lr}: Before: {before_logprob}, After: {after_logprob}, Diff: {after_logprob - before_logprob}")
-        # No need to reset - model_copy will be garbage collected
-        return jsonify({
-            'train_question': train_q,
-            'train_answer': train_a,
-            'test_question': test_q,
-            'test_answer': test_a,
-            'results': results
-        })
-        
-    except Exception as e:
-        logger.error(f"Error computing logprobs: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'results': None
-        }), 500
-
+    return backend(get_logprobs)
 @app.route('/generate_completions', methods=['POST'])
 def generate_completions():
-    try:
-        data = request.json
-        train_q = data.get('train_q', '').strip()
-        train_a = data.get('train_a', '').strip()
-        test_q = data.get('test_q', '').strip()
-        if not all([train_q, train_a, test_q]):
-            return jsonify({
-                'error': 'Training question, training answer, and test question must be filled',
-                'results': None
-            })
-        train_messages = [
-            {"role": "user", "content": train_q},
-            {"role": "assistant", "content": train_a}
-        ]
-        test_query = [{"role": "user", "content": test_q}]
-        results = {}
-        
-        # Create a deep copy of the model to modify
-        model_copy = copy.deepcopy(base_model)
-        
-        # Compute initial state
-        before_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=20)
-        compute_gradients(model_copy, tokenizer, train_messages)
-        for lri, lr in enumerate(LRS):
-            logger.info(f"Testing generation with learning rate: {lr}")
-            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
-            update_model_weights(model_copy, lrdiff)
-            after_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=20)
-            # Store results for this learning rate
-            results[f'lr_{lr}'] = {
-                'learning_rate': lr,
-                'before_generation': before_generation,
-                'after_generation': after_generation
-            }
-            logger.info(f"LR {lr} generation completed")
-        # No need to reset - model_copy will be garbage collected
-        return jsonify({
-            'train_question': train_q,
-            'train_answer': train_a,
-            'test_question': test_q,
-            'results': results
-        })
-        
-    except Exception as e:
-        logger.error(f"Error generating completions: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'results': None
-        }), 500
-
+    return backend(generate_text)
 @app.route('/compute_yes_no_probs', methods=['POST'])
 def compute_yes_no_probs():
-    try:
-        data = request.json
-        train_q = data.get('train_q', '').strip()
-        train_a = data.get('train_a', '').strip()
-        test_q = data.get('test_q', '').strip()
-        
-        if not all([train_q, train_a, test_q]):
-            return jsonify({
-                'error': 'Training question, training answer, and test question must be filled',
-                'results': None
-            })
-        
-        train_messages = [
-            {"role": "user", "content": train_q},
-            {"role": "assistant", "content": train_a}
-        ]
-        test_query = [{"role": "user", "content": test_q}]
-        
-        results = {}
-        # Create a deep copy of the model to modify
-        model_copy = copy.deepcopy(base_model)
-        
-        # Compute initial state (before training)
-        before_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
-        if isinstance(before_yes_no, dict) and "error" in before_yes_no:
-            return jsonify({
-                'error': before_yes_no["error"],
-                'results': None
-            })
-        
-        compute_gradients(model_copy, tokenizer, train_messages)
+    return backend(get_yes_no_logprobs)
 
-        for lri, lr in enumerate(LRS):
-            logger.info(f"Testing yes/no probs with learning rate: {lr}")
-            lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
-            update_model_weights(model_copy, lrdiff)
-            after_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
-            
-            if isinstance(after_yes_no, dict) and "error" in after_yes_no:
-                return jsonify({
-                    'error': after_yes_no["error"],
-                    'results': None
-                })
-            
-            # Store results for this learning rate
-            results[f'lr_{lr}'] = {
-                'learning_rate': lr,
-                'before_yes_logprob': before_yes_no["yes_logprob"],
-                'after_yes_logprob': after_yes_no["yes_logprob"],
-                'before_no_logprob': before_yes_no["no_logprob"],
-                'after_no_logprob': after_yes_no["no_logprob"]
-            }
-            logger.info(f"LR {lr}: Before Yes: {before_yes_no['yes_logprob']:.4f}, After Yes: {after_yes_no['yes_logprob']:.4f}, Before No: {before_yes_no['no_logprob']:.4f}, After No: {after_yes_no['no_logprob']:.4f}")
-        
-        return jsonify({
-            'train_question': train_q,
-            'train_answer': train_a,
-            'test_question': test_q,
-            'results': results
-        })
-        
+@app.route('/reset_model', methods=['POST'])
+def reset_model():
+    """Reset/reinitialize the model to its original state"""
+    try:
+        logger.info("Resetting model...")
+        initialize_model()
+        return jsonify({"success": True, "message": "Model reset successfully"})
     except Exception as e:
-        logger.error(f"Error computing yes/no probs: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'results': None
-        }), 500
+        logger.error(f"Error resetting model: {str(e)}")
+        return jsonify({"error": str(e), "success": False}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Flask app...")

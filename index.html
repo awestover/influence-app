@@ -466,6 +466,17 @@
             box-shadow: 0 6px 16px rgba(253, 126, 20, 0.4);
         }
 
+        .reset-btn {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+        }
+
         .control-button:active {
             transform: translateY(0);
         }
@@ -520,6 +531,10 @@
             <button id="yesNoBtn" class="control-button yes-no-btn" onclick="doYesNoProbs()">
                 <span>✅❌</span>
                 Yes/No Probs
+            </button>
+            <button id="resetBtn" class="control-button reset-btn" onclick="resetModel()">
+                <span>🔄</span>
+                Reset Model
             </button>
         </div>
 
@@ -586,10 +601,12 @@
         function updateButtonStates() {
             const generationsBtn = document.getElementById('doGenerationsBtn');
             const yesNoBtn = document.getElementById('yesNoBtn');
+            const resetBtn = document.getElementById('resetBtn');
             const hasRequiredFields = checkRequiredFields();
             
             generationsBtn.disabled = !hasRequiredFields || isProcessing;
             yesNoBtn.disabled = !hasRequiredFields || isProcessing;
+            resetBtn.disabled = isProcessing;
 
             if (!hasRequiredFields) {
                 updateStatus('Ready - Fill all fields to enable automatic computation', 'idle');
@@ -609,31 +626,34 @@
             let html = '';
             
             // Get learning rates from whichever data source is available
-            const results = logprobData?.results || completionData?.results || yesNoData?.results;
+            const results = logprobData || completionData || yesNoData;
             if (!results) {
                 container.innerHTML = '<p>No results available</p>';
                 return;
             }
             
+            // Learning rates are defined in the backend: [1e-5, 1e-4, 1e-3]
+            const learningRates = [0, 1e-5, 1e-4, 1e-3];
+            
             // Extract learning rates and sort them
-            const lrEntries = Object.entries(results).map(([key, data]) => ({
-                key,
-                lr: data.learning_rate,
-                logResult: logprobData?.results?.[key],
-                compResult: completionData?.results?.[key],
-                yesNoResult: yesNoData?.results?.[key]
-            })).sort((a, b) => a.lr - b.lr);
+            const lrEntries = Object.entries(results).map(([key, data]) => {
+                const lr = key === '0' ? 0 : parseFloat(key);
+                return {
+                    key,
+                    lr: lr,
+                    logResult: logprobData?.[key],
+                    compResult: completionData?.[key],
+                    yesNoResult: yesNoData?.[key]
+                };
+            }).sort((a, b) => a.lr - b.lr);
             
             // Create logprob table if we have logprob data
             if (logprobData) {
                 // Collect all logprob values to determine min/max for color gradient
                 const allLogprobs = [];
-                if (lrEntries[0]?.logResult?.before_logprob != null) {
-                    allLogprobs.push(lrEntries[0].logResult.before_logprob);
-                }
                 lrEntries.forEach(entry => {
-                    if (entry.logResult?.after_logprob != null) {
-                        allLogprobs.push(entry.logResult.after_logprob);
+                    if (entry.logResult != null) {
+                        allLogprobs.push(entry.logResult);
                     }
                 });
                 
@@ -662,16 +682,14 @@
                         <thead>
                             <tr>
                                 <th>LR</th>
-                                <th>0</th>
-                                ${lrEntries.map(entry => `<th>${formatLearningRate(entry.lr)}</th>`).join('')}
+                                ${lrEntries.map(entry => `<th>${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>logprob</td>
-                                <td><span style="${lrEntries[0]?.logResult?.before_logprob != null ? getGradientColor(lrEntries[0].logResult.before_logprob) : ''}">${lrEntries[0]?.logResult?.before_logprob != null ? Math.round(lrEntries[0].logResult.before_logprob) : 'N/A'}</span></td>
                                 ${lrEntries.map(entry => 
-                                    `<td><span style="${entry.logResult?.after_logprob != null ? getGradientColor(entry.logResult.after_logprob) : ''}">${entry.logResult?.after_logprob != null ? Math.round(entry.logResult.after_logprob) : 'N/A'}</span></td>`
+                                    `<td><span style="${entry.logResult != null ? getGradientColor(entry.logResult) : ''}">${entry.logResult != null ? Math.round(entry.logResult) : 'N/A'}</span></td>`
                                 ).join('')}
                             </tr>
                         </tbody>
@@ -685,19 +703,12 @@
                 const allYesLogprobs = [];
                 const allNoLogprobs = [];
                 
-                if (lrEntries[0]?.yesNoResult?.before_yes_logprob != null) {
-                    allYesLogprobs.push(lrEntries[0].yesNoResult.before_yes_logprob);
-                }
-                if (lrEntries[0]?.yesNoResult?.before_no_logprob != null) {
-                    allNoLogprobs.push(lrEntries[0].yesNoResult.before_no_logprob);
-                }
-                
                 lrEntries.forEach(entry => {
-                    if (entry.yesNoResult?.after_yes_logprob != null) {
-                        allYesLogprobs.push(entry.yesNoResult.after_yes_logprob);
+                    if (entry.yesNoResult?.yes_logprob != null) {
+                        allYesLogprobs.push(entry.yesNoResult.yes_logprob);
                     }
-                    if (entry.yesNoResult?.after_no_logprob != null) {
-                        allNoLogprobs.push(entry.yesNoResult.after_no_logprob);
+                    if (entry.yesNoResult?.no_logprob != null) {
+                        allNoLogprobs.push(entry.yesNoResult.no_logprob);
                     }
                 });
                 
@@ -745,23 +756,20 @@
                         <thead>
                             <tr>
                                 <th>LR</th>
-                                <th>0</th>
-                                ${lrEntries.map(entry => `<th>${formatLearningRate(entry.lr)}</th>`).join('')}
+                                ${lrEntries.map(entry => `<th>${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>Yes logprob</td>
-                                <td><span style="${lrEntries[0]?.yesNoResult?.before_yes_logprob != null ? getYesGradientColor(lrEntries[0].yesNoResult.before_yes_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_yes_logprob != null ? lrEntries[0].yesNoResult.before_yes_logprob.toFixed(3) : 'N/A'}</span></td>
                                 ${lrEntries.map(entry => 
-                                    `<td><span style="${entry.yesNoResult?.after_yes_logprob != null ? getYesGradientColor(entry.yesNoResult.after_yes_logprob) : ''}">${entry.yesNoResult?.after_yes_logprob != null ? entry.yesNoResult.after_yes_logprob.toFixed(3) : 'N/A'}</span></td>`
+                                    `<td><span style="${entry.yesNoResult?.yes_logprob != null ? getYesGradientColor(entry.yesNoResult.yes_logprob) : ''}">${entry.yesNoResult?.yes_logprob != null ? entry.yesNoResult.yes_logprob.toFixed(3) : 'N/A'}</span></td>`
                                 ).join('')}
                             </tr>
                             <tr>
                                 <td>No logprob</td>
-                                <td><span style="${lrEntries[0]?.yesNoResult?.before_no_logprob != null ? getNoGradientColor(lrEntries[0].yesNoResult.before_no_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_no_logprob != null ? lrEntries[0].yesNoResult.before_no_logprob.toFixed(3) : 'N/A'}</span></td>
                                 ${lrEntries.map(entry => 
-                                    `<td><span style="${entry.yesNoResult?.after_no_logprob != null ? getNoGradientColor(entry.yesNoResult.after_no_logprob) : ''}">${entry.yesNoResult?.after_no_logprob != null ? entry.yesNoResult.after_no_logprob.toFixed(3) : 'N/A'}</span></td>`
+                                    `<td><span style="${entry.yesNoResult?.no_logprob != null ? getNoGradientColor(entry.yesNoResult.no_logprob) : ''}">${entry.yesNoResult?.no_logprob != null ? entry.yesNoResult.no_logprob.toFixed(3) : 'N/A'}</span></td>`
                                 ).join('')}
                             </tr>
                         </tbody>
@@ -773,19 +781,12 @@
             if (completionData) {
                 html += `<ul class="generation-bullet-list">`;
                 
-                // Add baseline generation (LR 0) first
-                if (lrEntries[0]?.compResult) {
-                    html += `
-                        <li><strong>[LR 0]</strong> ${escapeHtml(lrEntries[0].compResult.before_generation)}</li>
-                    `;
-                }
-                
                 // Add each learning rate generation in sorted order (ascending)
                 // lrEntries is already sorted by lr ascending
                 lrEntries.forEach(entry => {
                     if (entry.compResult) {
                         html += `
-                            <li><strong>[LR ${formatLearningRate(entry.lr)}]</strong> ${escapeHtml(entry.compResult.after_generation)}</li>
+                            <li><strong>[LR ${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}]</strong> ${escapeHtml(entry.compResult)}</li>
                         `;
                     }
                 });
@@ -826,6 +827,7 @@
                 
                 if (result.error) {
                     updateStatus(`❌ Error: ${result.error}`, 'error');
+                    logprobData = null;
                     updateResults(null, completionData, yesNoData);
                     return;
                 }
@@ -865,6 +867,7 @@
                 
                 if (result.error) {
                     updateStatus(`❌ Error: ${result.error}`, 'error');
+                    completionData = null;
                     updateResults(logprobData, null, yesNoData);
                     return;
                 }
@@ -903,6 +906,7 @@
                 
                 if (result.error) {
                     updateStatus(`❌ Error: ${result.error}`, 'error');
+                    yesNoData = null;
                     updateResults(logprobData, completionData, null);
                     return;
                 }
@@ -919,6 +923,45 @@
                 isProcessing = false;
                 updateButtonStates();
                 updateStaleIndicator();
+            }
+        }
+
+        async function resetModel() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            updateButtonStates();
+            
+            try {
+                updateStatus('🔄 Resetting model to original state...', 'loading');
+                
+                const response = await fetch('http://localhost:5000/reset_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const result = await response.json();
+                
+                if (result.error) {
+                    updateStatus(`❌ Error: ${result.error}`, 'error');
+                    return;
+                }
+                
+                // Clear all cached data
+                logprobData = null;
+                completionData = null;
+                yesNoData = null;
+                lastComputedData = '';
+                
+                updateStatus('✅ Model reset successfully!', 'success');
+                updateResults(null, null, null);
+                
+            } catch (error) {
+                console.error('Reset request failed:', error);
+                updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
+            } finally {
+                isProcessing = false;
+                updateButtonStates();
             }
         }
 
