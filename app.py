@@ -4,9 +4,10 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
+import copy
 
 """
-Hack to speed this up by ~2x: apply the LRs without undoing.
+Model influence computation using deep copying approach for clean state isolation.
 """
 LRS = [1e-5, 1e-4, 1e-3]
 assert LRS[0] < LRS[1] < LRS[2]
@@ -105,15 +106,18 @@ def compute_logprobs():
         test_query = [{"role": "user", "content": test_q}]
         
         results = {}
+        # Create a deep copy of the model to modify
+        model_copy = copy.deepcopy(base_model)
+        
         # Compute initial state
-        before_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
-        compute_gradients(base_model, tokenizer, train_messages)
+        before_logprob = get_logprobs(model_copy, tokenizer, test_query, test_a)
+        compute_gradients(model_copy, tokenizer, train_messages)
 
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing logprobs with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
-            update_model_weights(base_model, lrdiff)
-            after_logprob = get_logprobs(base_model, tokenizer, test_query, test_a)
+            update_model_weights(model_copy, lrdiff)
+            after_logprob = get_logprobs(model_copy, tokenizer, test_query, test_a)
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
@@ -122,7 +126,7 @@ def compute_logprobs():
                 'logprob_difference': round(after_logprob - before_logprob)
             }
             logger.info(f"LR {lr}: Before: {before_logprob}, After: {after_logprob}, Diff: {after_logprob - before_logprob}")
-        update_model_weights(base_model, -LRS[-1])
+        # No need to reset - model_copy will be garbage collected
         return jsonify({
             'train_question': train_q,
             'train_answer': train_a,
@@ -156,14 +160,18 @@ def generate_completions():
         ]
         test_query = [{"role": "user", "content": test_q}]
         results = {}
+        
+        # Create a deep copy of the model to modify
+        model_copy = copy.deepcopy(base_model)
+        
         # Compute initial state
-        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=10)
-        compute_gradients(base_model, tokenizer, train_messages)
+        before_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=10)
+        compute_gradients(model_copy, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
-            update_model_weights(base_model, lrdiff)
-            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=10)
+            update_model_weights(model_copy, lrdiff)
+            after_generation = generate_text(model_copy, tokenizer, test_query, max_new_tokens=10)
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
@@ -171,7 +179,7 @@ def generate_completions():
                 'after_generation': after_generation
             }
             logger.info(f"LR {lr} generation completed")
-        update_model_weights(base_model, -LRS[-1])
+        # No need to reset - model_copy will be garbage collected
         return jsonify({
             'train_question': train_q,
             'train_answer': train_a,
