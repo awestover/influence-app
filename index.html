@@ -366,6 +366,23 @@
             margin: 20px 0;
         }
 
+        .generation-bullet-list {
+            margin: 20px 0;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+
+        .generation-bullet-list li {
+            margin-bottom: 12px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .generation-bullet-list li strong {
+            color: #007bff;
+            margin-right: 8px;
+        }
+
         .generation-item-simple {
             background: white;
             margin-bottom: 15px;
@@ -426,16 +443,7 @@
             justify-content: center;
         }
 
-        .logprobs-btn {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        }
 
-        .logprobs-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
-        }
 
         .generations-btn {
             background: linear-gradient(135deg, #6f42c1 0%, #5a2d8c 100%);
@@ -521,10 +529,6 @@
                 <span>📋</span>
                 Copy Training → Test
             </button>
-            <button id="computeLogprobsBtn" class="control-button logprobs-btn" onclick="computeLogprobs()">
-                <span>📊</span>
-                Compute LogProbs
-            </button>
             <button id="doGenerationsBtn" class="control-button generations-btn" onclick="doGenerations()">
                 <span>💬</span>
                 Do Generations
@@ -593,17 +597,15 @@
         }
 
         function updateButtonStates() {
-            const logprobsBtn = document.getElementById('computeLogprobsBtn');
             const generationsBtn = document.getElementById('doGenerationsBtn');
             const hasRequiredFields = checkRequiredFields();
             
-            logprobsBtn.disabled = !hasRequiredFields || isProcessing;
             generationsBtn.disabled = !hasRequiredFields || isProcessing;
 
             if (!hasRequiredFields) {
-                updateStatus('Ready - Fill all fields to enable buttons', 'idle');
+                updateStatus('Ready - Fill all fields to enable automatic computation', 'idle');
             } else if (!isProcessing && lastComputedData === '') {
-                updateStatus('Ready - Press buttons to compute results', 'idle');
+                updateStatus('Ready - Automatic computation will start shortly', 'idle');
             }
         }
 
@@ -690,15 +692,12 @@
             
             // Create generation list if we have completion data
             if (completionData) {
-                html += `<h4>💬 Text Generations (sorted by Learning Rate)</h4><div class="generation-list">`;
+                html += `<h4>💬 Text Generations (sorted by Learning Rate)</h4><ul class="generation-bullet-list">`;
                 
                 // Add baseline generation (LR 0) first
                 if (lrEntries[0]?.compResult) {
                     html += `
-                        <div class="generation-item-simple">
-                            <div class="generation-header">LR 0 (baseline):</div>
-                            <div class="generation-content">${escapeHtml(lrEntries[0].compResult.before_generation)}</div>
-                        </div>
+                        <li><strong>[LR 0]</strong> ${escapeHtml(lrEntries[0].compResult.before_generation)}</li>
                     `;
                 }
                 
@@ -707,15 +706,12 @@
                 lrEntries.forEach(entry => {
                     if (entry.compResult) {
                         html += `
-                            <div class="generation-item-simple">
-                                <div class="generation-header">LR ${formatLearningRate(entry.lr)} (after training):</div>
-                                <div class="generation-content">${escapeHtml(entry.compResult.after_generation)}</div>
-                            </div>
+                            <li><strong>[LR ${formatLearningRate(entry.lr)}]</strong> ${escapeHtml(entry.compResult.after_generation)}</li>
                         `;
                     }
                 });
                 
-                html += `</div>`;
+                html += `</ul>`;
             }
             
             container.innerHTML = html;
@@ -843,6 +839,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateButtonStates();
             updateResults(null, null);
+            
+            // Automatically compute logprobs every 3 seconds
+            setInterval(function() {
+                if (checkRequiredFields() && !isProcessing) {
+                    computeLogprobs();
+                }
+            }, 3000);
         });
     </script>
 </body>
