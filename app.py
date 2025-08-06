@@ -44,21 +44,27 @@ def get_logprobs(model, tokenizer, query_messages, response):
         return target_log_probs.sum().item()
 
 def get_yes_no_logprobs(model, tokenizer, query_messages):
-    """Get log probabilities for yes/Yes/no/No tokens only"""
+    """Get log probabilities for yes/Yes/no/No tokens with proper normalization"""
     device = next(model.parameters()).device
     model.eval()
     
-    # Get the token IDs for yes/no variants
+    # Get the token IDs for yes/no variants - order matters for the computation
     yes_tokens = ["yes", "Yes", "no", "No"]
+    token_mapping = {}
     token_ids = []
+    
     for token in yes_tokens:
         # Get token ID, handling potential multiple tokens
         encoded = tokenizer.encode(token, add_special_tokens=False)
         if len(encoded) == 1:  # Only use single-token words
+            token_mapping[token] = encoded[0]
             token_ids.append(encoded[0])
     
-    if len(token_ids) < 2:  # Need at least 2 tokens to be meaningful
-        return {"error": "Could not find sufficient yes/no token IDs"}
+    # We need all four tokens for proper computation
+    required_tokens = ["yes", "Yes", "no", "No"]
+    missing_tokens = [t for t in required_tokens if t not in token_mapping]
+    if missing_tokens:
+        return {"error": f"Could not find token IDs for: {missing_tokens}"}
     
     # Format query for generation
     query_text = tokenizer.apply_chat_template(query_messages, tokenize=False, add_generation_prompt=True)
@@ -69,24 +75,20 @@ def get_yes_no_logprobs(model, tokenizer, query_messages):
         outputs = model(input_ids)
         logits = outputs.logits[0, -1]  # Get logits for next token prediction
         
-        # Extract logits for yes/no tokens only
-        yes_no_logits = logits[token_ids]
+        # Get individual logits
+        yes_logit = logits[token_mapping["yes"]]
+        Yes_logit = logits[token_mapping["Yes"]]
+        no_logit = logits[token_mapping["no"]]
+        No_logit = logits[token_mapping["No"]]
         
-        # Apply softmax only to these tokens
-        yes_no_probs = F.softmax(yes_no_logits, dim=-1)
-        yes_no_logprobs = F.log_softmax(yes_no_logits, dim=-1)
+        # Compute Z = exp(logit(no)) + exp(logit(yes)) + exp(logit(Yes)) + exp(logit(No))
+        Z = torch.exp(yes_logit) + torch.exp(Yes_logit) + torch.exp(no_logit) + torch.exp(No_logit)
         
-        # Create result dictionary
-        result = {}
-        for i, token_id in enumerate(token_ids):
-            token_text = tokenizer.decode([token_id])
-            result[token_text] = {
-                'token_id': token_id,
-                'logprob': yes_no_logprobs[i].item(),
-                'prob': yes_no_probs[i].item()
-            }
+        # Compute log probability of "yes" variants: log((exp(logit(yes)) + exp(logit(Yes))) / Z)
+        yes_numerator = torch.exp(yes_logit) + torch.exp(Yes_logit)
+        combined_yes_logprob = torch.log(yes_numerator / Z)
         
-        return result
+        return combined_yes_logprob.item()
 def compute_gradients(model, tokenizer, messages):
     device = next(model.parameters()).device  # Get model's device
     model.zero_grad()
@@ -265,7 +267,7 @@ def compute_yes_no_probs():
         
         # Compute initial state (before training)
         before_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
-        if "error" in before_yes_no:
+        if isinstance(before_yes_no, dict) and "error" in before_yes_no:
             return jsonify({
                 'error': before_yes_no["error"],
                 'results': None
@@ -279,7 +281,7 @@ def compute_yes_no_probs():
             update_model_weights(model_copy, lrdiff)
             after_yes_no = get_yes_no_logprobs(model_copy, tokenizer, test_query)
             
-            if "error" in after_yes_no:
+            if isinstance(after_yes_no, dict) and "error" in after_yes_no:
                 return jsonify({
                     'error': after_yes_no["error"],
                     'results': None
@@ -288,10 +290,10 @@ def compute_yes_no_probs():
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
-                'before_yes_no': before_yes_no,
-                'after_yes_no': after_yes_no
+                'before_yes_no_logprob': before_yes_no,
+                'after_yes_no_logprob': after_yes_no
             }
-            logger.info(f"LR {lr}: Yes/No computation completed")
+            logger.info(f"LR {lr}: Before: {before_yes_no}, After: {after_yes_no}, Diff: {after_yes_no - before_yes_no}")
         
         return jsonify({
             'train_question': train_q,

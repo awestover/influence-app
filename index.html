@@ -679,44 +679,56 @@
                 `;
             }
             
-            // Create yes/no probabilities table if we have yes/no data
+            // Create yes/no logprob table if we have yes/no data
             if (yesNoData) {
+                // Collect all yes/no logprob values to determine min/max for color gradient
+                const allYesNoLogprobs = [];
+                if (lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null) {
+                    allYesNoLogprobs.push(lrEntries[0].yesNoResult.before_yes_no_logprob);
+                }
+                lrEntries.forEach(entry => {
+                    if (entry.yesNoResult?.after_yes_no_logprob != null) {
+                        allYesNoLogprobs.push(entry.yesNoResult.after_yes_no_logprob);
+                    }
+                });
+                
+                const minYesNoLogprob = Math.min(...allYesNoLogprobs);
+                const maxYesNoLogprob = Math.max(...allYesNoLogprobs);
+                
+                // Function to calculate gradient color for yes/no logprobs
+                function getYesNoGradientColor(value) {
+                    if (allYesNoLogprobs.length === 0 || minYesNoLogprob === maxYesNoLogprob) {
+                        return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                    }
+                    
+                    // Normalize value between 0 and 1
+                    const normalized = (value - minYesNoLogprob) / (maxYesNoLogprob - minYesNoLogprob);
+                    
+                    // Interpolate between dark red (0) and light green (1)
+                    const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                    const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                    const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                    
+                    return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+                }
+                
                 html += `
                     <table class="logprob-table">
                         <thead>
                             <tr>
-                                <th colspan="${lrEntries.length + 2}">Yes/No Probabilities</th>
-                            </tr>
-                            <tr>
-                                <th>Token</th>
+                                <th>LR</th>
                                 <th>0</th>
                                 ${lrEntries.map(entry => `<th>${formatLearningRate(entry.lr)}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
-                `;
-                
-                // Get all possible yes/no tokens from the first result
-                const firstYesNoResult = lrEntries[0]?.yesNoResult;
-                if (firstYesNoResult && firstYesNoResult.before_yes_no) {
-                    const yesNoTokens = Object.keys(firstYesNoResult.before_yes_no);
-                    
-                    yesNoTokens.forEach(token => {
-                        html += `
                             <tr>
-                                <td style="font-weight: bold;">${escapeHtml(token)}</td>
-                                <td style="font-family: 'Courier New', monospace;">${firstYesNoResult.before_yes_no[token]?.logprob != null ? 
-                                    firstYesNoResult.before_yes_no[token].logprob.toFixed(3) : 'N/A'}</td>
-                                ${lrEntries.map(entry => {
-                                    const afterValue = entry.yesNoResult?.after_yes_no?.[token]?.logprob;
-                                    return `<td style="font-family: 'Courier New', monospace;">${afterValue != null ? afterValue.toFixed(3) : 'N/A'}</td>`;
-                                }).join('')}
+                                <td>Yes logprob</td>
+                                <td><span style="${lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null ? getYesNoGradientColor(lrEntries[0].yesNoResult.before_yes_no_logprob) : ''}">${lrEntries[0]?.yesNoResult?.before_yes_no_logprob != null ? lrEntries[0].yesNoResult.before_yes_no_logprob.toFixed(3) : 'N/A'}</span></td>
+                                ${lrEntries.map(entry => 
+                                    `<td><span style="${entry.yesNoResult?.after_yes_no_logprob != null ? getYesNoGradientColor(entry.yesNoResult.after_yes_no_logprob) : ''}">${entry.yesNoResult?.after_yes_no_logprob != null ? entry.yesNoResult.after_yes_no_logprob.toFixed(3) : 'N/A'}</span></td>`
+                                ).join('')}
                             </tr>
-                        `;
-                    });
-                }
-                
-                html += `
                         </tbody>
                     </table>
                 `;
