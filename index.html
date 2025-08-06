@@ -430,6 +430,88 @@
             transform: none;
         }
 
+        .button-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .control-button {
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 180px;
+            justify-content: center;
+        }
+
+        .logprobs-btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .logprobs-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+        }
+
+        .generations-btn {
+            background: linear-gradient(135deg, #6f42c1 0%, #5a2d8c 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+        }
+
+        .generations-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(111, 66, 193, 0.4);
+        }
+
+        .control-button:active {
+            transform: translateY(0);
+        }
+
+        .control-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stale-indicator {
+            background: #ffeaa7;
+            color: #d63031;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin: 10px auto;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 2px solid #fdcb6e;
+        }
+
+        .stale-indicator.visible {
+            display: flex;
+        }
+
+        .results-section.stale .result-card {
+            opacity: 0.7;
+            border: 2px solid #ffeaa7;
+        }
+
+        .results-section.stale h4 {
+            color: #d63031;
+        }
+
 
     </style>
 </head>
@@ -467,10 +549,26 @@
             </button>
         </div>
 
+        <div class="button-controls">
+            <button id="computeLogprobsBtn" class="control-button logprobs-btn" onclick="computeLogprobs()">
+                <span>📊</span>
+                Compute LogProbs
+            </button>
+            <button id="doGenerationsBtn" class="control-button generations-btn" onclick="doGenerations()">
+                <span>💬</span>
+                Do Generations
+            </button>
+        </div>
+
         
-        <div class="results-section">
+        <div class="results-section" id="resultsSection">
             <h3>📊 Results Across Learning Rates</h3>
-            <div id="status" class="status idle">Ready - Enter text in all fields to see results</div>
+            <div id="status" class="status idle">Ready - Press buttons to compute results</div>
+            
+            <div id="staleIndicator" class="stale-indicator">
+                <span>⚠️</span>
+                Results may be stale - text has changed since last computation
+            </div>
             
             <div id="resultsContainer">
                 <!-- Results will be populated dynamically -->
@@ -479,8 +577,10 @@
     </div>
 
     <script>
-        let lastData = '';
+        let lastComputedData = '';
         let isProcessing = false;
+        let logprobData = null;
+        let completionData = null;
 
         function getCurrentData() {
             return {
@@ -497,11 +597,50 @@
             statusEl.className = `status ${type}`;
         }
 
+        function checkRequiredFields() {
+            const data = getCurrentData();
+            const requiredFields = ['train_q', 'train_a', 'test_q', 'test_a'];
+            return requiredFields.every(field => data[field].length > 0);
+        }
+
+        function checkDataChanged() {
+            const currentDataString = JSON.stringify(getCurrentData());
+            return currentDataString !== lastComputedData;
+        }
+
+        function updateStaleIndicator() {
+            const staleIndicator = document.getElementById('staleIndicator');
+            const resultsSection = document.getElementById('resultsSection');
+            
+            if ((logprobData || completionData) && checkDataChanged()) {
+                staleIndicator.classList.add('visible');
+                resultsSection.classList.add('stale');
+            } else {
+                staleIndicator.classList.remove('visible');
+                resultsSection.classList.remove('stale');
+            }
+        }
+
+        function updateButtonStates() {
+            const logprobsBtn = document.getElementById('computeLogprobsBtn');
+            const generationsBtn = document.getElementById('doGenerationsBtn');
+            const hasRequiredFields = checkRequiredFields();
+            
+            logprobsBtn.disabled = !hasRequiredFields || isProcessing;
+            generationsBtn.disabled = !hasRequiredFields || isProcessing;
+
+            if (!hasRequiredFields) {
+                updateStatus('Ready - Fill all fields to enable buttons', 'idle');
+            } else if (!isProcessing && lastComputedData === '') {
+                updateStatus('Ready - Press buttons to compute results', 'idle');
+            }
+        }
+
         function updateResults(logprobData, completionData) {
             const container = document.getElementById('resultsContainer');
             
             if (!logprobData && !completionData) {
-                container.innerHTML = '<p>No results available</p>';
+                container.innerHTML = '<p>No results available - press buttons to compute</p>';
                 return;
             }
             
@@ -622,101 +761,81 @@
             return div.innerHTML;
         }
 
-        async function sendRequest(data) {
-            if (isProcessing) return;
+        async function computeLogprobs() {
+            if (isProcessing || !checkRequiredFields()) return;
             
+            const data = getCurrentData();
             isProcessing = true;
+            updateButtonStates();
             
             try {
-                let logprobData = null;
-                let completionData = null;
-                
-                // First, compute log probabilities
                 updateStatus('🔄 Computing log probabilities...', 'loading');
                 
-                const logprobResponse = await fetch('http://localhost:5000/compute_logprobs', {
+                const response = await fetch('http://localhost:5000/compute_logprobs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                logprobData = await logprobResponse.json();
+                const result = await response.json();
                 
-                if (logprobData.error) {
-                    updateStatus(`❌ Error: ${logprobData.error}`, 'error');
-                    updateResults(null, null);
+                if (result.error) {
+                    updateStatus(`❌ Error: ${result.error}`, 'error');
+                    updateResults(null, completionData);
                     return;
                 }
                 
-                // Update display with logprob results immediately
-                updateStatus('✅ Log probabilities computed! Computing text generations...', 'loading');
-                updateResults(logprobData, null);
+                logprobData = result;
+                lastComputedData = JSON.stringify(data);
+                updateStatus('✅ Log probabilities computed successfully!', 'success');
+                updateResults(logprobData, completionData);
                 
-                // Then, compute completions
-                const completionResponse = await fetch('http://localhost:5000/generate_completions', {
+            } catch (error) {
+                console.error('LogProbs request failed:', error);
+                updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
+            } finally {
+                isProcessing = false;
+                updateButtonStates();
+                updateStaleIndicator();
+            }
+        }
+
+        async function doGenerations() {
+            if (isProcessing || !checkRequiredFields()) return;
+            
+            const data = getCurrentData();
+            isProcessing = true;
+            updateButtonStates();
+            
+            try {
+                updateStatus('🔄 Generating text completions...', 'loading');
+                
+                const response = await fetch('http://localhost:5000/generate_completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                completionData = await completionResponse.json();
+                const result = await response.json();
                 
-                if (completionData.error) {
-                    updateStatus(`❌ Error: ${completionData.error}`, 'error');
-                    // Keep logprob results but don't add completions
+                if (result.error) {
+                    updateStatus(`❌ Error: ${result.error}`, 'error');
                     updateResults(logprobData, null);
                     return;
                 }
                 
-                // Update display with both logprobs and completions
-                updateStatus('✅ All results updated successfully!', 'success');
+                completionData = result;
+                lastComputedData = JSON.stringify(data);
+                updateStatus('✅ Text generations computed successfully!', 'success');
                 updateResults(logprobData, completionData);
                 
             } catch (error) {
-                console.error('Request failed:', error);
+                console.error('Generations request failed:', error);
                 updateStatus('❌ Connection error - Make sure Flask server is running', 'error');
-                updateResults(null, null);
             } finally {
                 isProcessing = false;
+                updateButtonStates();
+                updateStaleIndicator();
             }
         }
-
-        function checkForChanges() {
-            const currentData = getCurrentData();
-            const currentDataString = JSON.stringify(currentData);
-            
-            // All fields are required for both logprobs and completions
-            const requiredFields = ['train_q', 'train_a', 'test_q', 'test_a'];
-            const requiredFieldsFilled = requiredFields.every(field => currentData[field].length > 0);
-            
-            if (!requiredFieldsFilled) {
-                if (lastData !== '') {
-                    updateStatus('Ready - Enter text in all fields to see results', 'idle');
-                    updateResults(null, null);
-                    lastData = '';
-                }
-                return;
-            }
-            
-            // Check if data has changed
-            if (currentDataString !== lastData) {
-                lastData = currentDataString;
-                sendRequest(currentData);
-            }
-        }
-
-        // Check for changes every 3 seconds
-        setInterval(checkForChanges, 3000);
-
-        // Also check immediately when the page loads
-        setTimeout(checkForChanges, 1000);
-
-        // Add some visual feedback when typing
-        document.querySelectorAll('textarea').forEach(textarea => {
-            textarea.addEventListener('input', function() {
-                if (!isProcessing) {
-                    updateStatus('⏳ Changes detected - will update in a moment...', 'loading');
-                }
-            });
-        });
 
         function copyTrainingToTest() {
             const trainQ = document.getElementById('trainQ').value;
@@ -736,11 +855,24 @@
                 button.disabled = false;
             }, 1500);
             
-            // Trigger change detection
-            setTimeout(checkForChanges, 100);
+            // Update button states and stale indicator
+            updateButtonStates();
+            updateStaleIndicator();
         }
 
+        // Check for text changes and update stale indicator
+        document.querySelectorAll('textarea').forEach(textarea => {
+            textarea.addEventListener('input', function() {
+                updateButtonStates();
+                updateStaleIndicator();
+            });
+        });
 
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateButtonStates();
+            updateResults(null, null);
+        });
     </script>
 </body>
 </html>
