@@ -157,13 +157,13 @@ def generate_completions():
         test_query = [{"role": "user", "content": test_q}]
         results = {}
         # Compute initial state
-        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
+        before_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=10)
         compute_gradients(base_model, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
             logger.info(f"Testing generation with learning rate: {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
             update_model_weights(base_model, lrdiff)
-            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=20)
+            after_generation = generate_text(base_model, tokenizer, test_query, max_new_tokens=10)
             # Store results for this learning rate
             results[f'lr_{lr}'] = {
                 'learning_rate': lr,
