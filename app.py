@@ -11,7 +11,7 @@ Model influence computation using deep copying approach for clean state isolatio
 """
 LRS = [1e-5, 1e-4, 1e-3]
 assert LRS[0] < LRS[1] < LRS[2]
-MODEL_NAME = "google/gemma-3-12b-it"
+MODEL_NAME = "google/gemma-3-4b-it"
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
