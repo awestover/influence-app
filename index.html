@@ -561,6 +561,21 @@
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
         }
 
+        .download-history-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            box-shadow: 0 3px 8px rgba(40, 167, 69, 0.3);
+            font-size: 0.9em;
+            padding: 8px 16px;
+            min-width: 120px;
+            margin-right: 10px;
+        }
+
+        .download-history-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+        }
+
         .history-count {
             font-size: 1.1em;
             color: #666;
@@ -764,6 +779,10 @@
         <div class="query-history-section">
             <h2>📋 Query History</h2>
             <div class="history-controls">
+                <button id="downloadHistoryBtn" class="control-button download-history-btn" onclick="downloadQueryHistory()">
+                    <span>💾</span>
+                    Download History
+                </button>
                 <button id="clearHistoryBtn" class="control-button clear-history-btn" onclick="clearQueryHistory()">
                     <span>🗑️</span>
                     Clear History
@@ -814,6 +833,25 @@
             queryHistory = [];
             localStorage.removeItem('queryHistory');
             displayQueryHistory();
+        }
+
+        function downloadQueryHistory() {
+            if (queryHistory.length === 0) {
+                alert('No query history to download!');
+                return;
+            }
+
+            // Export complete history as formatted JSON
+            const dataStr = JSON.stringify(queryHistory, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `influence_query_history_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            console.log(`Downloaded ${queryHistory.length} queries from history`);
         }
 
         function displayQueryHistory() {

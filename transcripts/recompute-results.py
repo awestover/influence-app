@@ -9,7 +9,7 @@ import sys
 import os
 
 # Add the parent directory to Python path to import from app.py
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append('..')
 
 from app import (
     initialize_model, 
@@ -87,7 +87,7 @@ def main():
     
     # Initialize model
     print("Initializing model...")
-    initialize_model()
+    initialize_model(MODEL_NAME="google/gemma-3-12b-it")
     print("Model initialized successfully!")
     
     # Read history.json
@@ -119,7 +119,7 @@ def main():
             updated_entries.append(entry)
     
     # Write updated results back to a new file
-    output_file = os.path.join(os.path.dirname(__file__), 'history_recomputed.json')
+    output_file = os.path.join(os.path.dirname(__file__), 'gemma-3-12b.json')
     try:
         with open(output_file, 'w') as f:
             json.dump(updated_entries, f, indent=2)

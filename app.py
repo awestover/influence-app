@@ -10,8 +10,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 LRS = [1e-5, 1e-4, 1e-3]
 assert LRS[0] < LRS[1] < LRS[2]
-# MODEL_NAME = "google/gemma-3-12b-it"
-MODEL_NAME = "google/gemma-3-4b-it"
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
@@ -130,7 +128,7 @@ def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temper
         generated_ids = outputs[0][input_ids.shape[1]:]
         generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
     return generated_text
-def initialize_model():
+def initialize_model(MODEL_NAME="google/gemma-3-4b-it"):
     global model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
