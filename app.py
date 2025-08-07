@@ -201,7 +201,6 @@ def compute_yes_no_probs():
             dummy[str(lr)] = {"yes_logprob": log(yespr), "no_logprob": log(1-yespr)}
         return jsonify(dummy)
     return backend(get_yes_no_logprobs)
-
 @app.route('/reset_model', methods=['POST'])
 def reset_model():
     """Reset/reinitialize the model to its original state"""
