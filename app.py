@@ -174,7 +174,6 @@ def backend(fn):
     test_query = [{"role": "user", "content": parsed["test_q"]}]
     test_a = parsed["test_a"]
     try:
-        import ipdb; ipdb.set_trace()
         results = {"0": fn(model, tokenizer, test_query, test_a)}
         compute_gradients(model, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
