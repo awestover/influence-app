@@ -175,6 +175,7 @@ def backend(fn):
         results = {"0": fn(model, tokenizer, test_query, test_a)}
         compute_gradients(model, tokenizer, train_messages)
         for lri, lr in enumerate(LRS):
+            logger.info(f"Running with {lr}")
             lrdiff = lr if lri == 0 else LRS[lri] - LRS[lri-1]
             update_model_weights(model, lrdiff)
             results[str(lr)] = fn(model, tokenizer, test_query, test_a)
