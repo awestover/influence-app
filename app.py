@@ -128,7 +128,7 @@ def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temper
         generated_ids = outputs[0][input_ids.shape[1]:]
         generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
     return generated_text
-def initialize_model(MODEL_NAME="google/gemma-3-4b-it"):
+def initialize_model(MODEL_NAME="google/gemma-3-12b-it"):
     global model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
