@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Query Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        /* Query History Section Styles */
+        .query-section {
+            width: 100%;
+            margin: 0;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .query-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .query-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .query-count {
+            font-size: 1.1em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .no-queries {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .history-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .history-timestamp {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .history-type {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .history-type.logprobs {
+            background: #28a745;
+        }
+
+        .history-type.generations {
+            background: #6f42c1;
+        }
+
+        .history-type.yesno {
+            background: #fd7e14;
+        }
+
+        .history-qa-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .history-qa-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .history-qa-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .history-qa-content {
+            color: #333;
+            line-height: 1.4;
+            font-size: 0.95em;
+        }
+
+        .history-results {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .history-results-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        /* Table styles for logprobs and yes/no results */
+        .logprob-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .logprob-table th,
+        .logprob-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .logprob-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .logprob-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        /* Generation list styles */
+        .generation-bullet-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .generation-bullet-list li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #007bff;
+        }
+
+        .error {
+            color: #dc3545;
+            font-style: italic;
+            padding: 10px;
+            background: #f8d7da;
+            border-radius: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .query-section {
+                padding: 15px;
+            }
+
+            .history-qa-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Query Viewer</h1>
+        <p class="subtitle">View and explore your saved query history</p>
+        
+        <div class="query-section">
+            <h2>📋 Queries</h2>
+            <div class="query-controls">
+                <span class="query-count" id="queryCount">Loading...</span>
+            </div>
+            <div id="queryContainer">
+                <div class="loading">Loading queries from history.json...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let queryHistory = [];
+
+        // Load history from JSON file
+        async function loadHistory() {
+            try {
+                const response = await fetch('history.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                queryHistory = await response.json();
+                displayQueryHistory();
+            } catch (error) {
+                console.error('Error loading history:', error);
+                const container = document.getElementById('queryContainer');
+                container.innerHTML = '<div class="error">Error loading history.json: ' + error.message + '</div>';
+            }
+        }
+
+        function displayQueryHistory() {
+            const container = document.getElementById('queryContainer');
+            const countElement = document.getElementById('queryCount');
+            
+            countElement.textContent = `${queryHistory.length} queries`;
+            
+            if (queryHistory.length === 0) {
+                container.innerHTML = '<div class="no-queries">No queries found in history.json</div>';
+                return;
+            }
+            
+            let html = '';
+            queryHistory.forEach(item => {
+                html += createHistoryItemHTML(item);
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function createHistoryItemHTML(item) {
+            const typeClass = item.type.toLowerCase().replace(' ', '').replace('/', '');
+            
+            let resultsHTML = '';
+            if (item.type === 'logprobs') {
+                resultsHTML = createLogprobsResultHTML(item.result);
+            } else if (item.type === 'generations') {
+                resultsHTML = createGenerationsResultHTML(item.result);
+            } else if (item.type === 'yes/no') {
+                resultsHTML = createYesNoResultHTML(item.result);
+            }
+            
+            return `
+                <div class="history-item">
+                    <div class="history-header">
+                        <span class="history-timestamp">${escapeHtml(item.timestamp)}</span>
+                        <span class="history-type ${typeClass}">${escapeHtml(item.type)}</span>
+                    </div>
+                    
+                    <div class="history-qa-section">
+                        <div class="history-qa-item">
+                            <div class="history-qa-label">Training Q</div>
+                            <div class="history-qa-content">${escapeHtml(item.train_q)}</div>
+                        </div>
+                        <div class="history-qa-item">
+                            <div class="history-qa-label">Training A</div>
+                            <div class="history-qa-content">${escapeHtml(item.train_a)}</div>
+                        </div>
+                        <div class="history-qa-item">
+                            <div class="history-qa-label">Test Q</div>
+                            <div class="history-qa-content">${escapeHtml(item.test_q)}</div>
+                        </div>
+                        <div class="history-qa-item">
+                            <div class="history-qa-label">Test A</div>
+                            <div class="history-qa-content">${escapeHtml(item.test_a)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="history-results">
+                        <div class="history-results-title">Results</div>
+                        ${resultsHTML}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createLogprobsResultHTML(result) {
+            if (!result || result.error) {
+                return `<div class="error">Error: ${result?.error || 'Unknown error'}</div>`;
+            }
+            
+            const lrEntries = Object.entries(result).map(([key, value]) => {
+                const lr = key === '0' ? 0 : parseFloat(key);
+                return { key, lr, value };
+            }).sort((a, b) => a.lr - b.lr);
+            
+            // Collect all logprob values to determine min/max for color gradient
+            const allLogprobs = [];
+            lrEntries.forEach(entry => {
+                if (entry.value != null) {
+                    allLogprobs.push(entry.value);
+                }
+            });
+            
+            const minLogprob = Math.min(...allLogprobs);
+            const maxLogprob = Math.max(...allLogprobs);
+            
+            // Function to calculate gradient color
+            function getGradientColor(value) {
+                if (allLogprobs.length === 0 || minLogprob === maxLogprob) {
+                    return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                }
+                
+                // Normalize value between 0 and 1
+                const normalized = (value - minLogprob) / (maxLogprob - minLogprob);
+                
+                // Interpolate between dark red (0) and light green (1)
+                const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                
+                return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+            }
+            
+            let html = '<table class="logprob-table"><thead><tr><th>LR</th>';
+            lrEntries.forEach(entry => {
+                html += `<th>${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}</th>`;
+            });
+            html += '</tr></thead><tbody><tr><td>logprob</td>';
+            
+            lrEntries.forEach(entry => {
+                html += `<td><span style="${entry.value != null ? getGradientColor(entry.value) : ''}">${entry.value != null ? Math.round(entry.value) : 'N/A'}</span></td>`;
+            });
+            html += '</tr></tbody></table>';
+            
+            return html;
+        }
+
+        function createGenerationsResultHTML(result) {
+            if (!result || result.error) {
+                return `<div class="error">Error: ${result?.error || 'Unknown error'}</div>`;
+            }
+            
+            const lrEntries = Object.entries(result).map(([key, value]) => {
+                const lr = key === '0' ? 0 : parseFloat(key);
+                return { key, lr, value };
+            }).sort((a, b) => a.lr - b.lr);
+            
+            let html = '<ul class="generation-bullet-list">';
+            lrEntries.forEach(entry => {
+                if (entry.value) {
+                    html += `<li><strong>[LR ${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}]</strong> ${escapeHtml(entry.value)}</li>`;
+                }
+            });
+            html += '</ul>';
+            
+            return html;
+        }
+
+        function createYesNoResultHTML(result) {
+            if (!result || result.error) {
+                return `<div class="error">Error: ${result?.error || 'Unknown error'}</div>`;
+            }
+            
+            const lrEntries = Object.entries(result).map(([key, value]) => {
+                const lr = key === '0' ? 0 : parseFloat(key);
+                return { key, lr, value };
+            }).sort((a, b) => a.lr - b.lr);
+            
+            // Collect all yes/no logprob values to determine min/max for color gradient
+            const allYesLogprobs = [];
+            const allNoLogprobs = [];
+            
+            lrEntries.forEach(entry => {
+                if (entry.value?.yes_logprob != null) {
+                    allYesLogprobs.push(entry.value.yes_logprob);
+                }
+                if (entry.value?.no_logprob != null) {
+                    allNoLogprobs.push(entry.value.no_logprob);
+                }
+            });
+            
+            const minYesLogprob = Math.min(...allYesLogprobs);
+            const maxYesLogprob = Math.max(...allYesLogprobs);
+            const minNoLogprob = Math.min(...allNoLogprobs);
+            const maxNoLogprob = Math.max(...allNoLogprobs);
+            
+            // Function to calculate gradient color for yes logprobs
+            function getYesGradientColor(value) {
+                if (allYesLogprobs.length === 0 || minYesLogprob === maxYesLogprob) {
+                    return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                }
+                
+                // Normalize value between 0 and 1
+                const normalized = (value - minYesLogprob) / (maxYesLogprob - minYesLogprob);
+                
+                // Interpolate between dark red (0) and light green (1)
+                const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                
+                return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+            }
+            
+            // Function to calculate gradient color for no logprobs
+            function getNoGradientColor(value) {
+                if (allNoLogprobs.length === 0 || minNoLogprob === maxNoLogprob) {
+                    return 'background-color: #f8f9fa; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;';
+                }
+                
+                // Normalize value between 0 and 1
+                const normalized = (value - minNoLogprob) / (maxNoLogprob - minNoLogprob);
+                
+                // Interpolate between dark red (0) and light green (1)
+                const red = Math.round(139 - (139 - 144) * normalized);    // 139 -> 144
+                const green = Math.round(69 + (238 - 69) * normalized);    // 69 -> 238
+                const blue = Math.round(19 + (144 - 19) * normalized);     // 19 -> 144
+                
+                return `background-color: rgb(${red}, ${green}, ${blue}); color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center;`;
+            }
+            
+            let html = '<table class="logprob-table"><thead><tr><th>LR</th>';
+            lrEntries.forEach(entry => {
+                html += `<th>${entry.lr === 0 ? '0' : formatLearningRate(entry.lr)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            html += '<tr><td>Yes logprob</td>';
+            lrEntries.forEach(entry => {
+                html += `<td><span style="${entry.value?.yes_logprob != null ? getYesGradientColor(entry.value.yes_logprob) : ''}">${entry.value?.yes_logprob != null ? entry.value.yes_logprob.toFixed(3) : 'N/A'}</span></td>`;
+            });
+            html += '</tr>';
+            
+            html += '<tr><td>No logprob</td>';
+            lrEntries.forEach(entry => {
+                html += `<td><span style="${entry.value?.no_logprob != null ? getNoGradientColor(entry.value.no_logprob) : ''}">${entry.value?.no_logprob != null ? entry.value.no_logprob.toFixed(3) : 'N/A'}</span></td>`;
+            });
+            html += '</tr></tbody></table>';
+            
+            return html;
+        }
+
+        function formatLearningRate(lr) {
+            // Convert to scientific notation format like 1e-3
+            return parseFloat(lr).toExponential();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load history when page loads
+        window.addEventListener('DOMContentLoaded', loadHistory);
+    </script>
+</body>
+</html>
