@@ -41,8 +41,8 @@ def get_logprobs(model, tokenizer, query_messages, response):
         outputs = model(full_ids)
         logits = outputs.logits
         # GET RID OF EOS
-        response_logits = logits[0, query_len-1:-1]
-        response_targets = full_ids[0, query_len:-3]
+        response_logits = logits[0, query_len-1:-3]
+        response_targets = full_ids[0, query_len:-2]
         import ipdb; ipdb.set_trace()
         log_probs = F.log_softmax(response_logits, dim=-1)
         target_log_probs = log_probs.gather(1, response_targets.unsqueeze(1)).squeeze(1)
