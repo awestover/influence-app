@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 torch.set_float32_matmul_precision('high')
 MOCK = False
 DO_SAMPLE = False
-LORA = True
+LORA = False
+DEFAULT_MODEL_NAME = "google/gemma-3-12b-it"
 
 # Global variables for model and tokenizer
 model = None
@@ -131,7 +132,7 @@ def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temper
         generated_ids = outputs[0][input_ids.shape[1]:]
         generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
     return generated_text
-def initialize_model(MODEL_NAME="google/gemma-3-12b-it"):
+def initialize_model(MODEL_NAME=DEFAULT_MODEL_NAME):
     global model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -211,11 +212,16 @@ def reset_model():
 if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run the influence app with optional mock mode')
-    parser.add_argument('--mock', action='store_true')
+    parser.add_argument('--mock', action='store_true', help='Enable mock mode for testing')
+    parser.add_argument('--sample', action='store_true', help='Enable sampling during text generation')
+    parser.add_argument('--lora', action='store_true', help='Enable LORA adapter')
+    parser.add_argument('--model', type=str, default=DEFAULT_MODEL_NAME, help='Model name to load')
     args = parser.parse_args()
     MOCK = args.mock
+    DO_SAMPLE = args.sample
+    LORA = args.lora
+    DEFAULT_MODEL_NAME = args.model
     logger.info("Starting Flask app...")
-    logger.info(f"Mock mode: {'enabled' if MOCK else 'disabled'}")
     if not MOCK:
         initialize_model()
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
