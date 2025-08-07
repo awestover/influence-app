@@ -136,6 +136,7 @@ def initialize_model(MODEL_NAME="google/gemma-3-4b-it"):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     logger.info("Model loaded successfully!")
+    return model, tokenizer
 
 def backend(fn):
     logger.info(f"Running {fn.__name__}")
