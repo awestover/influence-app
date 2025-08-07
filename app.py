@@ -1,5 +1,3 @@
-MOCK = False
-
 import random
 from math import log
 from flask import Flask, request, jsonify
@@ -8,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
+import argparse
 LRS = [1e-5, 1e-4, 1e-3]
 assert LRS[0] < LRS[1] < LRS[2]
 app = Flask(__name__)
@@ -15,6 +14,7 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 torch.set_float32_matmul_precision('high')
+MOCK = False
 
 # Global variables for model and tokenizer
 model = None
@@ -188,7 +188,13 @@ def reset_model():
     return jsonify({"success": True, "message": "Model reset successfully"})
 
 if __name__ == '__main__':
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Run the influence app with optional mock mode')
+    parser.add_argument('--mock', action='store_true')
+    args = parser.parse_args()
+    MOCK = args.mock
     logger.info("Starting Flask app...")
+    logger.info(f"Mock mode: {'enabled' if MOCK else 'disabled'}")
     if not MOCK:
         initialize_model()
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
