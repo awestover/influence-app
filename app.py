@@ -5,6 +5,7 @@ from flask_cors import CORS
 import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import get_peft_model, LoraConfig, TaskType
 import logging
 import argparse
 LRS = [1e-5, 1e-4, 1e-3]
@@ -15,6 +16,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 torch.set_float32_matmul_precision('high')
 MOCK = False
+DO_SAMPLE = False
+LORA = True
 
 # Global variables for model and tokenizer
 model = None
@@ -104,8 +107,8 @@ def compute_gradients(model, tokenizer, messages):
     loss.backward()
 def update_model_weights(model, lr):
     with torch.no_grad():
-        for param in model.parameters():
-            if param.grad is not None:
+        for _, param in model.named_parameters():
+            if param.requires_grad and param.grad is not None:
                 param.data -= lr * param.grad
 def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temperature=0.7):
     """Generate text from the model given query messages"""
@@ -120,7 +123,7 @@ def generate_text(model, tokenizer, query_messages, _, max_new_tokens=20, temper
             input_ids,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
-            do_sample=True,
+            do_sample=DO_SAMPLE,
             pad_token_id=tokenizer.eos_token_id,
             eos_token_id=tokenizer.eos_token_id
         )
@@ -132,7 +135,24 @@ def initialize_model(MODEL_NAME="google/gemma-3-12b-it"):
     global model, tokenizer
     logger.info(f"Loading model: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
+    base_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
+    
+    if LORA:
+        logger.info("Initializing model with LORA adapter")
+        lora_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=16,  # rank
+            lora_alpha=32,  # scaling parameter
+            lora_dropout=0.1,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        )
+        model = get_peft_model(base_model, lora_config)
+        logger.info("LORA adapter added successfully!")
+    else:
+        logger.info("Using full model (no LORA)")
+        model = base_model
+    
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     logger.info("Model loaded successfully!")

@@ -4,3 +4,4 @@ flask
 flask-cors
 accelerate
 ipdb
+peft
