@@ -25,7 +25,6 @@ def format_messages(train_q, train_a, test_q):
     test_query = [{"role": "user", "content": test_q}]
     return train_messages, test_query
 def process_entry(entry):
-    import ipdb; ipdb.set_trace()
     """Process a single entry from history.json"""
     print(f"Processing entry {entry['id']} (type: {entry['type']})")
     test_a = entry['test_a']
